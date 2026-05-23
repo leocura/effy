@@ -34,9 +34,11 @@ from Effy.video import (
     maximize_window as SDL_MaximizeWindow, restore_window as SDL_RestoreWindow,
     show_window as SDL_ShowWindow, hide_window as SDL_HideWindow,
     get_num_video_displays as SDL_GetNumVideoDisplays, get_display_name as SDL_GetDisplayName,
-    get_display_bounds as SDL_GetDisplayBounds
+    get_display_bounds as SDL_GetDisplayBounds,
+    load_bmp as SDL_LoadBMP, load_image as IMG_Load
 )
 from Effy.events import poll_event as SDL_PollEvent, wait_event as SDL_WaitEvent, pump_events as SDL_PumpEvents
+from Effy.audio import load_wav as SDL_LoadWAV
 from Effy.render import (
     create_renderer as SDL_CreateRenderer, render_clear as SDL_RenderClear,
     render_present as SDL_RenderPresent, render_set_draw_color as SDL_SetRenderDrawColor,
@@ -142,6 +144,7 @@ __all__ = [
     "SDL_CreateTextureFromSurface",
     "SDL_GetBasePath", "SDL_GetPrefPath", "SDL_RWops", "SDL_RWFromFile", "SDL_RWToFile", "SDL_GetClipboardText", "SDL_SetClipboardText", "SDL_GetClipboardData", "SDL_SetClipboardData",
     "SDL_GetTicks", "SDL_Delay", "SDL_GetPerformanceCounter", "SDL_GetPerformanceFrequency", "SDL_AddTimer", "SDL_RemoveTimer",
+    "SDL_LoadBMP", "IMG_Load", "SDL_LoadWAV",
     "SDL_INIT_TIMER", "SDL_INIT_AUDIO", "SDL_INIT_VIDEO", "SDL_INIT_JOYSTICK",
     "SDL_INIT_HAPTIC", "SDL_INIT_GAMEPAD", "SDL_INIT_EVENTS", "SDL_INIT_SENSOR",
     "SDL_INIT_EVERYTHING",

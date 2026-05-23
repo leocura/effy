@@ -374,8 +374,98 @@ class LinuxX11Adapter:
         self._x11_gl: Any = None
         self._gl_contexts: dict[int, Any] = {}
         self._gl_texture_cache: dict[int, tuple[int, int, int]] = {}
+        self._js_fds: dict[int, int] = {}
+        self._js_states: dict[int, dict[str, Any]] = {}
+        self._haptic_fds: dict[int, int] = {}
+        self._haptic_effects: dict[int, int] = {}
+        self._init_joysticks()
+    def _init_joysticks(self) -> None:
+        """Scan and open available Linux joystick device files in non-blocking mode."""
+        import os
+        for i in range(4):
+            path = f"/dev/input/js{i}"
+            if os.path.exists(path):
+                try:
+                    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+                    self._js_fds[i] = fd
+                    self._js_states[i] = {
+                        "buttons": set(),
+                        "axes": {},
+                        "hats": {},
+                        "name": f"Linux Gamepad {i}"
+                    }
+                except Exception:
+                    pass
 
+    def _poll_joysticks(self) -> None:
+        """Read any pending JS events from joystick file descriptors and update states."""
+        import os
+        import struct
+        from Effy.events.types import ControllerButtonEvent, ControllerAxisEvent
+        from Effy.input.gamepad import GamepadButton, GamepadAxis
 
+        # JS Event struct format:
+        # u32 time, s16 value, u8 type, u8 number
+        # total 8 bytes
+        struct_format = "IhBB"
+        struct_size = struct.calcsize(struct_format)
+
+        for dev_id, fd in list(self._js_fds.items()):
+            try:
+                while True:
+                    data = os.read(fd, struct_size)
+                    if not data or len(data) < struct_size:
+                        break
+                    
+                    time_ms, value, ev_type, number = struct.unpack(struct_format, data)
+                    
+                    # ev_type: 1 = button, 2 = axis, 0x80 = init flag
+                    is_init = bool(ev_type & 0x80)
+                    actual_type = ev_type & ~0x80
+
+                    state = self._js_states[dev_id]
+
+                    if actual_type == 1: # Button
+                        if value == 1:
+                            state["buttons"].add(number)
+                            if not is_init:
+                                self._pending_events = self._pending_events.push(ControllerButtonEvent(
+                                    timestamp=time_ms,
+                                    which=dev_id,
+                                    button=GamepadButton(number) if number <= 20 else GamepadButton.INVALID,
+                                    state=True
+                                ))
+                        else:
+                            state["buttons"].discard(number)
+                            if not is_init:
+                                self._pending_events = self._pending_events.push(ControllerButtonEvent(
+                                    timestamp=time_ms,
+                                    which=dev_id,
+                                    button=GamepadButton(number) if number <= 20 else GamepadButton.INVALID,
+                                    state=False
+                                ))
+                    elif actual_type == 2: # Axis
+                        # Normalize s16 value (-32767 to 32767) to -1.0 to 1.0
+                        norm_val = max(-1.0, min(1.0, value / 32767.0))
+                        state["axes"][number] = norm_val
+                        if not is_init:
+                            self._pending_events = self._pending_events.push(ControllerAxisEvent(
+                                timestamp=time_ms,
+                                which=dev_id,
+                                axis=GamepadAxis(number) if number <= 5 else GamepadAxis.INVALID,
+                                value=norm_val
+                            ))
+            except BlockingIOError:
+                # No more data currently available
+                pass
+            except Exception:
+                # Device might have been disconnected, close descriptor
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass
+                self._js_fds.pop(dev_id, None)
+                self._js_states.pop(dev_id, None)
 
     @classmethod
     def detect(cls) -> bool:
@@ -1019,6 +1109,7 @@ class LinuxX11Adapter:
 
     def pump_events(self) -> None:
         """Process all pending X11 events and push them to the queue."""
+        self._poll_joysticks()
         if not self._x11 or not self._display:
             return
 
@@ -1271,34 +1362,160 @@ class LinuxX11Adapter:
 
     def get_gamepad_state(self) -> Any:
         """Retrieve current gamepad snapshot state."""
-        from Effy.input.gamepad import GamepadState
-        return GamepadState(devices=frozenset())
+        from Effy.input.gamepad import GamepadState, GamepadDeviceState, GamepadButton, GamepadAxis
+        devices = []
+        for dev_id, state in self._js_states.items():
+            pressed_btns = set()
+            for btn_num in state["buttons"]:
+                if btn_num <= 20:
+                    pressed_btns.add(GamepadButton(btn_num))
+            
+            axes_vals = []
+            for axis_num, val in state["axes"].items():
+                if axis_num <= 5:
+                    axes_vals.append((GamepadAxis(axis_num), val))
+
+            devices.append(GamepadDeviceState(
+                device_id=dev_id,
+                name=state["name"],
+                pressed_buttons=frozenset(pressed_btns),
+                axes=frozenset(axes_vals)
+            ))
+        return GamepadState(devices=frozenset(devices))
 
     def get_sensor_state(self) -> Any:
-        """Retrieve current sensor snapshot state."""
-        from Effy.input.sensors import SensorState
-        return SensorState(devices=frozenset())
+        """Retrieve current sensor snapshot state from sysfs."""
+        from Effy.input.sensors import SensorState, SensorDeviceState, SensorType
+        import os
+        
+        devices: list[SensorDeviceState] = []
+        # Check /sys/class/iio/devices/ for accelerometers / gyroscopes
+        iio_dir = "/sys/class/iio/devices"
+        if os.path.exists(iio_dir):
+            for dev in os.listdir(iio_dir):
+                dev_path = os.path.join(iio_dir, dev)
+                name_file = os.path.join(dev_path, "name")
+                if os.path.isfile(name_file):
+                    try:
+                        with open(name_file, "r") as f:
+                            name = f.read().strip()
+                        
+                        accel_x_file = os.path.join(dev_path, "in_accel_x_raw")
+                        accel_y_file = os.path.join(dev_path, "in_accel_y_raw")
+                        accel_z_file = os.path.join(dev_path, "in_accel_z_raw")
+                        
+                        if os.path.exists(accel_x_file):
+                            x_val = y_val = z_val = 0.0
+                            with open(accel_x_file, "r") as fx:
+                                x_val = float(fx.read().strip())
+                            with open(accel_y_file, "r") as fy:
+                                y_val = float(fy.read().strip())
+                            with open(accel_z_file, "r") as fz:
+                                z_val = float(fz.read().strip())
+                            
+                            devices.append(SensorDeviceState(
+                                device_id=len(devices),
+                                name=name,
+                                type=SensorType.ACCEL,
+                                data=(x_val, y_val, z_val)
+                            ))
+                    except Exception:
+                        pass
+        return SensorState(devices=frozenset(devices))
 
     def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
-        """Open a haptic device for play back."""
+        """Open a haptic device for force feedback rumble."""
         from Effy.platform import PlatformHapticHandle
+        import os
+        for node in (f"/dev/input/event{device_id}", f"/dev/input/event{device_id+10}", f"/dev/input/event{device_id+12}"):
+            if os.path.exists(node):
+                try:
+                    fd = os.open(node, os.O_RDWR)
+                    self._haptic_fds[device_id] = fd
+                    self._haptic_effects[device_id] = -1
+                    return Ok(PlatformHapticHandle(device_id))
+                except Exception:
+                    pass
         return Ok(PlatformHapticHandle(device_id))
 
     def close_haptic(self, device_id: int) -> None:
         """Close an opened haptic device."""
-        pass
+        import os
+        fd = self._haptic_fds.pop(device_id, None)
+        if fd:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+        self._haptic_effects.pop(device_id, None)
 
     def is_rumble_supported(self, device_id: int) -> bool:
         """Determine whether rumble is supported on this haptic device."""
-        return False
+        return device_id in self._haptic_fds
 
     def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, EffyError]:
-        """Play a simple rumble effect on the haptic device."""
-        return Err(EffyError(code=-1, message="Rumble not implemented on Linux X11 stub"))
+        """Play a simple rumble effect on the haptic device using ioctl force-feedback."""
+        import os
+        fd = self._haptic_fds.get(device_id)
+        if not fd:
+            return Err(EffyError(code=-1, message="Haptic device event node not open or unsupported"))
+        
+        try:
+            mag = int(strength * 0xFFFF)
+            
+            class FFRumble(ctypes.Structure):
+                _fields_ = [("strong", ctypes.c_ushort), ("weak", ctypes.c_ushort)]
+                
+            class FFEffect(ctypes.Structure):
+                _fields_ = [
+                    ("type", ctypes.c_ushort),
+                    ("id", ctypes.c_short),
+                    ("direction", ctypes.c_ushort),
+                    ("trigger_button", ctypes.c_ushort),
+                    ("trigger_interval", ctypes.c_ushort),
+                    ("replay_length", ctypes.c_ushort),
+                    ("replay_delay", ctypes.c_ushort),
+                    ("u", FFRumble)
+                ]
+                
+            eff = FFEffect()
+            eff.type = 0x5051 # FF_RUMBLE
+            eff.id = self._haptic_effects.get(device_id, -1)
+            eff.replay_length = duration_ms
+            eff.u.strong = mag
+            eff.u.weak = mag
+            
+            import fcntl
+            EVIOCSFF = 0x40304580
+            
+            buf = bytearray(eff)
+            fcntl.ioctl(fd, EVIOCSFF, buf)
+            
+            uploaded_eff = FFEffect.from_buffer(buf)
+            self._haptic_effects[device_id] = uploaded_eff.id
+            
+            import struct
+            ev = struct.pack("QQHHi", 0, 0, 0x15, uploaded_eff.id, 1)
+            os.write(fd, ev)
+            
+            return Ok(None)
+        except Exception as e:
+            return Err(EffyError(code=-1, message=f"Failed to play rumble on Linux: {str(e)}"))
 
     def stop_rumble(self, device_id: int) -> Result[None, EffyError]:
         """Stop rumble playback on the haptic device."""
-        return Err(EffyError(code=-1, message="Rumble not implemented on Linux X11 stub"))
+        import os
+        fd = self._haptic_fds.get(device_id)
+        eff_id = self._haptic_effects.get(device_id, -1)
+        if not fd or eff_id == -1:
+            return Ok(None)
+        try:
+            import struct
+            ev = struct.pack("QQHHi", 0, 0, 0x15, eff_id, 0)
+            os.write(fd, ev)
+            return Ok(None)
+        except Exception as e:
+            return Err(EffyError(code=-1, message=f"Failed to stop rumble on Linux: {str(e)}"))
 
     def upload_effect(self, device_id: int, effect: Any) -> Result[int, EffyError]:
         """Upload a custom haptic effect to the haptic device."""

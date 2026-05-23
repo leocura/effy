@@ -298,6 +298,96 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+if sys.platform == "win32" or TYPE_CHECKING:
+    class PIXELFORMATDESCRIPTOR(ctypes.Structure):
+        """Win32 PIXELFORMATDESCRIPTOR structure describing the pixel format of a drawing surface."""
+        _fields_ = [
+            ("nSize", ctypes.c_ushort),
+            ("nVersion", ctypes.c_ushort),
+            ("dwFlags", ctypes.c_ulong),
+            ("iPixelType", ctypes.c_ubyte),
+            ("cColorBits", ctypes.c_ubyte),
+            ("cRedBits", ctypes.c_ubyte),
+            ("cRedShift", ctypes.c_ubyte),
+            ("cGreenBits", ctypes.c_ubyte),
+            ("cGreenShift", ctypes.c_ubyte),
+            ("cBlueBits", ctypes.c_ubyte),
+            ("cBlueShift", ctypes.c_ubyte),
+            ("cAlphaBits", ctypes.c_ubyte),
+            ("cAlphaShift", ctypes.c_ubyte),
+            ("cAccumBits", ctypes.c_ubyte),
+            ("cAccumRedBits", ctypes.c_ubyte),
+            ("cAccumGreenBits", ctypes.c_ubyte),
+            ("cAccumBlueBits", ctypes.c_ubyte),
+            ("cAccumAlphaBits", ctypes.c_ubyte),
+            ("cDepthBits", ctypes.c_ubyte),
+            ("cStencilBits", ctypes.c_ubyte),
+            ("cAuxBuffers", ctypes.c_ubyte),
+            ("iLayerType", ctypes.c_ubyte),
+            ("bReserved", ctypes.c_ubyte),
+            ("dwLayerMask", ctypes.c_ulong),
+            ("dwVisibleMask", ctypes.c_ulong),
+            ("dwDamageMask", ctypes.c_ulong),
+        ]
+
+opengl32: Any = None
+if sys.platform == "win32":
+    try:
+        opengl32 = ctypes.windll.opengl32
+        
+        # wgl functions
+        opengl32.wglCreateContext.argtypes = [ctypes.c_void_p]
+        opengl32.wglCreateContext.restype = ctypes.c_void_p
+        opengl32.wglMakeCurrent.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        opengl32.wglMakeCurrent.restype = ctypes.c_int
+        opengl32.wglDeleteContext.argtypes = [ctypes.c_void_p]
+        opengl32.wglDeleteContext.restype = ctypes.c_int
+
+        # GL functions
+        opengl32.glViewport.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        opengl32.glViewport.restype = None
+        opengl32.glClearColor.argtypes = [ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+        opengl32.glClearColor.restype = None
+        opengl32.glClear.argtypes = [ctypes.c_uint]
+        opengl32.glClear.restype = None
+        opengl32.glMatrixMode.argtypes = [ctypes.c_uint]
+        opengl32.glMatrixMode.restype = None
+        opengl32.glLoadIdentity.argtypes = []
+        opengl32.glLoadIdentity.restype = None
+        opengl32.glOrtho.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double]
+        opengl32.glOrtho.restype = None
+        opengl32.glColor4ub.argtypes = [ctypes.c_ubyte, ctypes.c_ubyte, ctypes.c_ubyte, ctypes.c_ubyte]
+        opengl32.glColor4ub.restype = None
+        opengl32.glBegin.argtypes = [ctypes.c_uint]
+        opengl32.glBegin.restype = None
+        opengl32.glEnd.argtypes = []
+        opengl32.glEnd.restype = None
+        opengl32.glVertex2f.argtypes = [ctypes.c_float, ctypes.c_float]
+        opengl32.glVertex2f.restype = None
+        opengl32.glEnable.argtypes = [ctypes.c_uint]
+        opengl32.glEnable.restype = None
+        opengl32.glDisable.argtypes = [ctypes.c_uint]
+        opengl32.glDisable.restype = None
+        opengl32.glBlendFunc.argtypes = [ctypes.c_uint, ctypes.c_uint]
+        opengl32.glBlendFunc.restype = None
+        opengl32.glGenTextures.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_uint)]
+        opengl32.glGenTextures.restype = None
+        opengl32.glDeleteTextures.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_uint)]
+        opengl32.glDeleteTextures.restype = None
+        opengl32.glBindTexture.argtypes = [ctypes.c_uint, ctypes.c_uint]
+        opengl32.glBindTexture.restype = None
+        opengl32.glTexImage2D.argtypes = [
+            ctypes.c_uint, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p
+        ]
+        opengl32.glTexImage2D.restype = None
+        opengl32.glTexParameteri.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_int]
+        opengl32.glTexParameteri.restype = None
+        opengl32.glTexCoord2f.argtypes = [ctypes.c_float, ctypes.c_float]
+        opengl32.glTexCoord2f.restype = None
+    except Exception:
+        opengl32 = None
+
 class WindowsGDIAdapter:
     """Platform adapter implementing the Effy platform interface using Win32 GDI and WASAPI."""
 
@@ -320,6 +410,8 @@ class WindowsGDIAdapter:
         self._bgra_buffer: bytearray = bytearray()
         self._audio_devices: dict[PlatformAudioHandle, Any] = {}
         self._next_audio_id: int = 1
+        self._gl_contexts: dict[Any, Any] = {}
+        self._gl_texture_cache: dict[int, tuple[int, int, int]] = {}
 
     @classmethod
     def detect(cls) -> bool:
@@ -361,7 +453,7 @@ class WindowsGDIAdapter:
                 windll.user32.UnregisterClassW(self._class_name, self._h_instance)
         
     def create_window(self, params: Any) -> Result[Any, EffyError]:
-        """Create a native Win32 window using CreateWindowExW."""
+        """Create a native Win32 window using CreateWindowExW and set up PixelFormat for OpenGL."""
         if sys.platform != "win32":
              return Err(EffyError(code=-1, message="Not on Windows"))
 
@@ -387,12 +479,34 @@ class WindowsGDIAdapter:
             
         if hasattr(windll.user32, "RegisterTouchWindow"):
             windll.user32.RegisterTouchWindow(hwnd, TWF_WANTPALM)
-            
+
+        # Retrieve HDC and configure PixelFormat for hardware-accelerated OpenGL
+        hdc = windll.user32.GetDC(hwnd)
+        if hdc:
+            pfd = PIXELFORMATDESCRIPTOR()
+            pfd.nSize = ctypes.sizeof(PIXELFORMATDESCRIPTOR)
+            pfd.nVersion = 1
+            # PFD_DRAW_TO_WINDOW (0x4) | PFD_SUPPORT_OPENGL (0x20) | PFD_DOUBLEBUFFER (0x1)
+            pfd.dwFlags = 0x00000004 | 0x00000020 | 0x00000001
+            pfd.iPixelType = 0 # PFD_TYPE_RGBA
+            pfd.cColorBits = 32
+            pfd.cDepthBits = 24
+            pfd.iLayerType = 0 # PFD_MAIN_PLANE
+
+            pixel_format = windll.gdi32.ChoosePixelFormat(hdc, ctypes.byref(pfd))
+            if pixel_format:
+                windll.gdi32.SetPixelFormat(hdc, pixel_format, ctypes.byref(pfd))
+            windll.user32.ReleaseDC(hwnd, hdc)
         return Ok(hwnd)
 
     def destroy_window(self, handle: Any) -> None:
-        """Destroy the native Win32 window."""
+        """Destroy the native Win32 window and associated OpenGL/WGL context."""
         if sys.platform == "win32":
+            if handle in self._gl_contexts:
+                gl_context = self._gl_contexts.pop(handle)
+                if opengl32:
+                    opengl32.wglMakeCurrent(None, None)
+                    opengl32.wglDeleteContext(gl_context)
             windll.user32.DestroyWindow(handle)
 
     def set_window_title(self, handle: Any, title: str) -> None:
@@ -1203,6 +1317,266 @@ class WindowsGDIAdapter:
         """Destroy an uploaded haptic effect."""
         pass
 
+    def _get_gl_texture(self, src_buffer: Any) -> int:
+        """Get or create a cached OpenGL texture ID for the given PixelBuffer.
+
+        Args:
+            src_buffer: The source PixelBuffer.
+
+        Returns:
+            The OpenGL texture ID.
+        """
+        buf_id = id(src_buffer)
+        if buf_id in self._gl_texture_cache:
+            tex_id, w, h = self._gl_texture_cache[buf_id]
+            if w == src_buffer.width and h == src_buffer.height:
+                return tex_id
+
+        tex_id_var = ctypes.c_uint(0)
+        opengl32.glGenTextures(1, ctypes.byref(tex_id_var))
+        tex_id = tex_id_var.value
+
+        opengl32.glBindTexture(0x0DE1, tex_id)
+
+        data_mv = src_buffer._mv
+        data_bytes = data_mv.tobytes()
+
+        opengl32.glTexImage2D(
+            0x0DE1, 0, 0x1908, src_buffer.width, src_buffer.height, 0,
+            0x1908, 0x1401, data_bytes
+        )
+
+        opengl32.glTexParameteri(0x0DE1, 0x2801, 0x2600)
+        opengl32.glTexParameteri(0x0DE1, 0x2800, 0x2600)
+
+        if len(self._gl_texture_cache) >= 1000:
+            for key in list(self._gl_texture_cache.keys())[:100]:
+                old_tex_id, _, _ = self._gl_texture_cache.pop(key)
+                old_tex_id_var = ctypes.c_uint(old_tex_id)
+                opengl32.glDeleteTextures(1, ctypes.byref(old_tex_id_var))
+
+        self._gl_texture_cache[buf_id] = (tex_id, src_buffer.width, src_buffer.height)
+        return tex_id
+
     def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, EffyError]:
-        """Hardware-accelerated rendering stub. Windows GDI does not support accelerated presentation."""
-        return Err(EffyError(code=-1, message="Hardware acceleration not supported on this platform"))
+        """Present the deferred commands using hardware-accelerated OpenGL/WGL.
+
+        Args:
+            handle: Native window handle.
+            commands: List of DrawCmd to render.
+            width: Width of the render target.
+            height: Height of the render target.
+
+        Returns:
+            A Result wrapper representing success or failure.
+        """
+        if not opengl32:
+            return Err(EffyError(code=-1, message="OpenGL/WGL not initialized"))
+
+        hdc = windll.user32.GetDC(handle)
+        if not hdc:
+            return Err(EffyError(code=-1, message="Failed to get window device context"))
+
+        try:
+            if handle not in self._gl_contexts:
+                gl_context = opengl32.wglCreateContext(hdc)
+                if not gl_context:
+                    return Err(EffyError(code=-1, message="Failed to create WGL context"))
+                self._gl_contexts[handle] = gl_context
+
+            gl_context = self._gl_contexts[handle]
+            opengl32.wglMakeCurrent(hdc, gl_context)
+
+            opengl32.glViewport(0, 0, width, height)
+            opengl32.glMatrixMode(0x1701)
+            opengl32.glLoadIdentity()
+            opengl32.glOrtho(0.0, float(width), float(height), 0.0, -1.0, 1.0)
+            opengl32.glMatrixMode(0x1700)
+            opengl32.glLoadIdentity()
+
+            opengl32.glClearColor(0.0, 0.0, 0.0, 0.0)
+            opengl32.glClear(0x00004000)
+
+            opengl32.glEnable(0x0BE2)
+            opengl32.glBlendFunc(0x0302, 0x0303)
+
+            from Effy.render.commands import (
+                FillRectCmd, DrawRectCmd, DrawLineCmd,
+                DrawCircleCmd, FillCircleCmd, FillTriangleCmd,
+                BlitCmd, BlitBlendedCmd, BlitScaledCmd, BlitBilinearCmd,
+                RenderFieldCmd
+            )
+            import math
+
+            for cmd in commands:
+                if isinstance(cmd, FillRectCmd):
+                    if cmd.rect is None:
+                        x1, y1, x2, y2 = 0.0, 0.0, float(width), float(height)
+                    else:
+                        x1 = float(cmd.rect.x)
+                        y1 = float(cmd.rect.y)
+                        x2 = float(cmd.rect.x + cmd.rect.w)
+                        y2 = float(cmd.rect.y + cmd.rect.h)
+                    opengl32.glColor4ub(cmd.color.r, cmd.color.g, cmd.color.b, cmd.color.a)
+                    opengl32.glBegin(0x0007)
+                    opengl32.glVertex2f(x1, y1)
+                    opengl32.glVertex2f(x2, y1)
+                    opengl32.glVertex2f(x2, y2)
+                    opengl32.glVertex2f(x1, y2)
+                    opengl32.glEnd()
+
+                elif isinstance(cmd, DrawRectCmd):
+                    x1 = float(cmd.rect.x)
+                    y1 = float(cmd.rect.y)
+                    x2 = float(cmd.rect.x + cmd.rect.w)
+                    y2 = float(cmd.rect.y + cmd.rect.h)
+                    opengl32.glColor4ub(cmd.color.r, cmd.color.g, cmd.color.b, cmd.color.a)
+                    opengl32.glBegin(0x0002)
+                    opengl32.glVertex2f(x1, y1)
+                    opengl32.glVertex2f(x2, y1)
+                    opengl32.glVertex2f(x2, y2)
+                    opengl32.glVertex2f(x1, y2)
+                    opengl32.glEnd()
+
+                elif isinstance(cmd, DrawLineCmd):
+                    opengl32.glColor4ub(cmd.color.r, cmd.color.g, cmd.color.b, cmd.color.a)
+                    opengl32.glBegin(0x0001)
+                    opengl32.glVertex2f(float(cmd.p1.x), float(cmd.p1.y))
+                    opengl32.glVertex2f(float(cmd.p2.x), float(cmd.p2.y))
+                    opengl32.glEnd()
+
+                elif isinstance(cmd, FillTriangleCmd):
+                    opengl32.glColor4ub(cmd.color.r, cmd.color.g, cmd.color.b, cmd.color.a)
+                    opengl32.glBegin(0x0004)
+                    opengl32.glVertex2f(float(cmd.p1.x), float(cmd.p1.y))
+                    opengl32.glVertex2f(float(cmd.p2.x), float(cmd.p2.y))
+                    opengl32.glVertex2f(float(cmd.p3.x), float(cmd.p3.y))
+                    opengl32.glEnd()
+
+                elif isinstance(cmd, (FillCircleCmd, DrawCircleCmd)):
+                    cx = float(cmd.center.x)
+                    cy = float(cmd.center.y)
+                    r = float(cmd.radius)
+                    opengl32.glColor4ub(cmd.color.r, cmd.color.g, cmd.color.b, cmd.color.a)
+                    
+                    num_segments = max(16, int(2.0 * math.pi * r / 2.0))
+                    if num_segments > 100:
+                        num_segments = 100
+
+                    if isinstance(cmd, FillCircleCmd):
+                        opengl32.glBegin(0x0006)
+                        opengl32.glVertex2f(cx, cy)
+                        for i in range(num_segments + 1):
+                            theta = 2.0 * math.pi * float(i) / float(num_segments)
+                            opengl32.glVertex2f(cx + r * math.cos(theta), cy + r * math.sin(theta))
+                        opengl32.glEnd()
+                    else:
+                        opengl32.glBegin(0x0002)
+                        for i in range(num_segments):
+                            theta = 2.0 * math.pi * float(i) / float(num_segments)
+                            opengl32.glVertex2f(cx + r * math.cos(theta), cy + r * math.sin(theta))
+                        opengl32.glEnd()
+
+                elif isinstance(cmd, (BlitCmd, BlitBlendedCmd, BlitScaledCmd, BlitBilinearCmd)):
+                    src_buffer = cmd.src_buffer
+                    
+                    if cmd.src_rect is None:
+                        sx1, sy1, sx2, sy2 = 0.0, 0.0, float(src_buffer.width), float(src_buffer.height)
+                    else:
+                        sx1 = float(cmd.src_rect.x)
+                        sy1 = float(cmd.src_rect.y)
+                        sx2 = float(cmd.src_rect.x + cmd.src_rect.w)
+                        sy2 = float(cmd.src_rect.y + cmd.src_rect.h)
+                    
+                    if cmd.dst_rect is None:
+                        dx1, dy1 = 0.0, 0.0
+                        dx2, dy2 = float(width), float(height)
+                    else:
+                        dx1 = float(cmd.dst_rect.x)
+                        dy1 = float(cmd.dst_rect.y)
+                        if isinstance(cmd, (BlitScaledCmd, BlitBilinearCmd)):
+                            dx2 = dx1 + float(cmd.dst_rect.w)
+                            dy2 = dy1 + float(cmd.dst_rect.h)
+                        else:
+                            dx2 = dx1 + (sx2 - sx1)
+                            dy2 = dy1 + (sy2 - sy1)
+
+                    tex_id = self._get_gl_texture(src_buffer)
+                    opengl32.glEnable(0x0DE1)
+                    opengl32.glBindTexture(0x0DE1, tex_id)
+
+                    if isinstance(cmd, BlitBilinearCmd):
+                        opengl32.glTexParameteri(0x0DE1, 0x2801, 0x2601)
+                        opengl32.glTexParameteri(0x0DE1, 0x2800, 0x2601)
+                    else:
+                        opengl32.glTexParameteri(0x0DE1, 0x2801, 0x2600)
+                        opengl32.glTexParameteri(0x0DE1, 0x2800, 0x2600)
+
+                    tex_w = float(src_buffer.width)
+                    tex_h = float(src_buffer.height)
+                    s1 = sx1 / tex_w
+                    t1 = sy1 / tex_h
+                    s2 = sx2 / tex_w
+                    t2 = sy2 / tex_h
+
+                    opengl32.glColor4ub(255, 255, 255, 255)
+                    opengl32.glBegin(0x0007)
+                    opengl32.glTexCoord2f(s1, t1)
+                    opengl32.glVertex2f(dx1, dy1)
+                    opengl32.glTexCoord2f(s2, t1)
+                    opengl32.glVertex2f(dx2, dy1)
+                    opengl32.glTexCoord2f(s2, t2)
+                    opengl32.glVertex2f(dx2, dy2)
+                    opengl32.glTexCoord2f(s1, t2)
+                    opengl32.glVertex2f(dx1, dy2)
+                    opengl32.glEnd()
+                    
+                    opengl32.glDisable(0x0DE1)
+
+                elif isinstance(cmd, RenderFieldCmd):
+                    from Effy.video.surface import PixelBuffer
+                    from Effy._internal.pool import pixel_buffer_pool
+                    from Effy.render.renderer import _dispatch_render_field
+
+                    temp_data = pixel_buffer_pool.get(width, height, zero=True)
+                    _dispatch_render_field(cmd, temp_data, width, height, width)
+
+                    temp_buf = PixelBuffer(
+                        width=width,
+                        height=height,
+                        pitch=width,
+                        _data_cache=[temp_data],
+                        _commands_list=[],
+                        _is_transient=True
+                    )
+
+                    tex_id = self._get_gl_texture(temp_buf)
+                    opengl32.glEnable(0x0DE1)
+                    opengl32.glBindTexture(0x0DE1, tex_id)
+
+                    opengl32.glTexParameteri(0x0DE1, 0x2801, 0x2600)
+                    opengl32.glTexParameteri(0x0DE1, 0x2800, 0x2600)
+
+                    opengl32.glColor4ub(255, 255, 255, 255)
+                    opengl32.glBegin(0x0007)
+                    opengl32.glTexCoord2f(0.0, 0.0)
+                    opengl32.glVertex2f(0.0, 0.0)
+                    opengl32.glTexCoord2f(1.0, 0.0)
+                    opengl32.glVertex2f(float(width), 0.0)
+                    opengl32.glTexCoord2f(1.0, 1.0)
+                    opengl32.glVertex2f(float(width), float(height))
+                    opengl32.glTexCoord2f(0.0, 1.0)
+                    opengl32.glVertex2f(0.0, float(height))
+                    opengl32.glEnd()
+
+                    opengl32.glDisable(0x0DE1)
+
+                    tex_id_var = ctypes.c_uint(tex_id)
+                    opengl32.glDeleteTextures(1, ctypes.byref(tex_id_var))
+                    self._gl_texture_cache.pop(id(temp_buf), None)
+                    pixel_buffer_pool.put(width, height, temp_data)
+
+            windll.gdi32.SwapBuffers(hdc)
+            return Ok(None)
+        finally:
+            windll.user32.ReleaseDC(handle, hdc)

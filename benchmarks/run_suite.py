@@ -39,11 +39,17 @@ def main():
         "test_triangles.py",
         "test_shader.py",
         "test_audio.py",
-        "test_geometry.py"
+        "test_geometry.py",
+        "test_events.py",
+        "test_image.py"
     ]
     
     # Detect PyPy3
-    local_pypy = os.path.join(benchmarks_dir, "..", "venv_pypy", "Scripts", "pypy3.exe")
+    if os.name == "nt":
+        local_pypy = os.path.join(benchmarks_dir, "..", ".venv_pypy", "Scripts", "pypy3.exe")
+    else:
+        local_pypy = os.path.join(benchmarks_dir, "..", ".venv_pypy", "bin", "pypy3")
+
     if os.path.exists(local_pypy):
         effy_interpreter = local_pypy
     else:
@@ -56,7 +62,11 @@ def main():
                 print("Warning: pypy3 not found. Falling back to CPython for Effy.")
                 effy_interpreter = sys.executable
             
-    local_cpython = os.path.join(benchmarks_dir, "..", "venv_cpython", "Scripts", "python.exe")
+    if os.name == "nt":
+        local_cpython = os.path.join(benchmarks_dir, "..", ".venv_cpython", "Scripts", "python.exe")
+    else:
+        local_cpython = os.path.join(benchmarks_dir, "..", ".venv_cpython", "bin", "python")
+
     if os.path.exists(local_cpython):
         pygame_interpreter = local_cpython
     else:

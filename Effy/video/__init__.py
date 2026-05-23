@@ -7,6 +7,10 @@ from Effy.video.window import (
 )
 from Effy.video.display import get_num_video_displays, get_display_name, get_display_bounds
 from Effy.video.image import load_bmp, load_png, load_image
+from Effy.video.camera import (
+    TransformMatrix, Camera, translate, scale, rotate,
+    get_camera_matrix, world_to_screen, screen_to_world, camera_lerp, apply_shake
+)
 
 __all__ = [
     "Rect", "Point", "FRect", "FPoint", "PixelBuffer",
@@ -14,6 +18,8 @@ __all__ = [
     "set_window_size", "set_window_position", "minimize_window", "maximize_window",
     "restore_window", "show_window", "hide_window",
     "get_num_video_displays", "get_display_name", "get_display_bounds",
-    "load_bmp", "load_png", "load_image"
+    "load_bmp", "load_png", "load_image",
+    "TransformMatrix", "Camera", "translate", "scale", "rotate",
+    "get_camera_matrix", "world_to_screen", "screen_to_world", "camera_lerp", "apply_shake"
 ]
 

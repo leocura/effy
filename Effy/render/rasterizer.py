@@ -277,6 +277,138 @@ def rasterize_fill_triangle(
         fill_bottom_flat(p1x, p1y, p2x, p2y, p4x, p4y)
         fill_top_flat(p2x, p2y, p4x, p4y, p3x, p3y)
 
+def rasterize_fill_polygon(
+    data: array.array[int], width: int, height: int, pitch: int,
+    points: tuple[Point, ...], color: Color
+) -> None:
+    """Fill an arbitrary polygon using a non-zero winding scanline algorithm in-place."""
+    if len(points) < 3:
+        return
+        
+    color_int = get_color_int(color)
+    
+    min_y = points[0].y
+    max_y = points[0].y
+    for p in points:
+        if p.y < min_y: min_y = p.y
+        if p.y > max_y: max_y = p.y
+        
+    min_y = max(0, min_y)
+    max_y = min(height - 1, max_y)
+    
+    num_points = len(points)
+    for y in range(min_y, max_y + 1):
+        intersections = []
+        j = num_points - 1
+        for i in range(num_points):
+            pi = points[i]
+            pj = points[j]
+            
+            if pi.y <= y < pj.y:
+                x = pi.x + (y - pi.y) * (pj.x - pi.x) / (pj.y - pi.y)
+                intersections.append((x, 1))
+            elif pj.y <= y < pi.y:
+                x = pi.x + (y - pi.y) * (pj.x - pi.x) / (pj.y - pi.y)
+                intersections.append((x, -1))
+            j = i
+            
+        intersections.sort(key=lambda t: t[0])
+        
+        winding = 0
+        fill_start = None
+        for x, direction in intersections:
+            if winding == 0:
+                fill_start = x
+            winding += direction
+            if winding == 0 and fill_start is not None:
+                x1 = int(fill_start)
+                x2 = int(x)
+                x1 = max(0, x1)
+                x2 = min(width - 1, x2)
+                if x1 <= x2:
+                    off = y * pitch
+                    for cx in range(x1, x2 + 1):
+                        data[off + cx] = color_int
+                fill_start = None
+
+
+def rasterize_draw_curve(
+    data: array.array[int], width: int, height: int, pitch: int,
+    points: tuple[Point, ...], color: Color
+) -> None:
+    """Draw a Bezier curve using iterative adaptive De Casteljau subdivision."""
+    if len(points) not in (3, 4):
+        return
+
+    f_pts = [(float(p.x), float(p.y)) for p in points]
+    stack = [f_pts]
+    
+    tolerance_sq = 0.5
+    
+    def dist_sq(x1: float, y1: float, x2: float, y2: float) -> float:
+        dx = x1 - x2
+        dy = y1 - y2
+        return dx*dx + dy*dy
+
+    def line_point_dist_sq(px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
+        l2 = dist_sq(ax, ay, bx, by)
+        if l2 == 0:
+            return dist_sq(px, py, ax, ay)
+        t = ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / l2
+        t = max(0.0, min(1.0, t))
+        proj_x = ax + t * (bx - ax)
+        proj_y = ay + t * (by - ay)
+        return dist_sq(px, py, proj_x, proj_y)
+
+    while stack:
+        pts = stack.pop()
+        
+        is_flat = True
+        ax, ay = pts[0]
+        bx, by = pts[-1]
+        for px, py in pts[1:-1]:
+            if line_point_dist_sq(px, py, ax, ay, bx, by) > tolerance_sq:
+                is_flat = False
+                break
+                
+        if is_flat or len(stack) > 100:
+            rasterize_draw_line(data, width, height, pitch, 
+                                Point(int(ax), int(ay)), 
+                                Point(int(bx), int(by)), color)
+        else:
+            if len(pts) == 3:
+                (x0, y0), (x1, y1), (x2, y2) = pts
+                
+                q0x, q0y = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                q1x, q1y = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                
+                cx, cy = (q0x + q1x) / 2.0, (q0y + q1y) / 2.0
+                
+                left = [(x0, y0), (q0x, q0y), (cx, cy)]
+                right = [(cx, cy), (q1x, q1y), (x2, y2)]
+                
+                stack.append(right)
+                stack.append(left)
+                
+            else:
+                (x0, y0), (x1, y1), (x2, y2), (x3, y3) = pts
+                
+                q0x, q0y = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                q1x, q1y = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                q2x, q2y = (x2 + x3) / 2.0, (y2 + y3) / 2.0
+                
+                r0x, r0y = (q0x + q1x) / 2.0, (q0y + q1y) / 2.0
+                r1x, r1y = (q1x + q2x) / 2.0, (q1y + q2y) / 2.0
+                
+                cx, cy = (r0x + r1x) / 2.0, (r0y + r1y) / 2.0
+                
+                left = [(x0, y0), (q0x, q0y), (r0x, r0y), (cx, cy)]
+                right = [(cx, cy), (r1x, r1y), (q2x, q2y), (x3, y3)]
+                
+                stack.append(right)
+                stack.append(left)
+
+
 def rasterize_blit(
     src_data: array.array[int] | memoryview, src_w: int, src_h: int, src_pitch: int, src_rect: Rect | None,
     dst_data: array.array[int], dst_w: int, dst_h: int, dst_pitch: int, dst_rect: Rect | None

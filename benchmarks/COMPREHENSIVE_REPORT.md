@@ -1,75 +1,96 @@
 # Effy vs Pygame Comprehensive Benchmark Report
 
-Generated at: 2026-05-22 20:59:57
+Generated at: 2026-05-23 18:24:27
 
 ## Environment
 ## Suite: `test_primitives.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Fill Rect Small | 2.7305 | 9.5058 | 3.48x | 7.1128 | 22.6908 | 0.00 | 0.00 |
-| Fill Rect Large | 2.8360 | 2.0833 | 0.73x | 6.5938 | 4.5787 | 0.00 | 0.00 |
-| Draw Line | 13.5230 | 16.1075 | 1.19x | 27.6243 | 31.7333 | 0.00 | 0.00 |
-| Fill Circle | 3.4379 | 2.7966 | 0.81x | 19.9177 | 5.5943 | 0.00 | 0.00 |
-| Draw Rect | 29.6512 | 7.5196 | 0.25x | 41.5545 | 17.2426 | 0.00 | 0.00 |
+| Fill Rect Small | 1.0269 | 1.7417 | 1.70x | 2.2742 | 1.8129 | 0.00 | 0.00 |
+| Fill Rect Large | 0.6196 | 1.4501 | 2.34x | 0.6410 | 1.5225 | 0.00 | 0.00 |
+| Draw Line | 4.6739 | 3.9369 | 0.84x | 9.9511 | 4.0983 | 0.00 | 0.00 |
+| Fill Circle | 1.7223 | 0.9802 | 0.57x | 3.6187 | 1.0152 | 0.00 | 0.00 |
+| Draw Rect | 15.6582 | 1.9373 | 0.12x | 23.3611 | 2.0927 | 0.00 | 0.00 |
 
 ## Suite: `test_surfaces.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Blit Small | 41.2399 | 2.7915 | 0.07x | 87.7006 | 5.0280 | 0.00 | 0.00 |
-| Blit Scaled | 23.1707 | 4.7273 | 0.20x | 42.8495 | 6.8837 | 0.00 | 0.00 |
-| Blit Bilinear | 75.1694 | 9.0632 | 0.12x | 111.0837 | 10.7300 | 0.00 | 0.00 |
+| Blit Small | 6.3815 | 1.2562 | 0.20x | 7.5707 | 1.7288 | 0.00 | 0.00 |
+| Blit Scaled | 9.9854 | 3.1178 | 0.31x | 13.0823 | 3.6691 | 0.00 | 0.00 |
+| Blit Bilinear | 44.2211 | 4.7144 | 0.11x | 48.2515 | 5.0723 | 0.00 | 0.00 |
 
 ## Suite: `test_particles.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Particles Sim (2000) | 5.2157 | 14.0916 | 2.70x | 16.6485 | 24.9644 | 0.00 | 0.01 |
+| Particles Sim (2000) | 2.1202 | 6.6660 | 3.14x | 4.8630 | 7.6780 | 0.00 | 0.01 |
 
 ## Suite: `test_triangles.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Fill Triangles | 249.8263 | 61.0629 | 0.24x | 377.5589 | 98.4954 | 0.00 | 0.00 |
+| Fill Triangles | 175.3431 | 18.6703 | 0.11x | 197.9334 | 21.9739 | 0.00 | 0.00 |
 
 ## Suite: `test_shader.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| SDF CSG Shader 500x500 | 73.2411 | 13455.1364 | 183.71x | 81.1613 | 14652.6764 | 0.00 | 0.00 |
+| SDF CSG Shader 500x500 | 55.7965 | 4243.6404 | 76.06x | 57.6459 | 4823.5555 | 0.00 | 0.00 |
 
 ## Suite: `test_audio.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Audio Spec Conversion | 0.2717 | 212.6911 | 782.95x | 0.8364 | 257.7766 | 0.00 | 0.54 |
-| Audio Multi-Stream Mix | 1.1005 | 98.5380 | 89.54x | 2.0949 | 125.7485 | 0.00 | 0.14 |
+| Audio Spec Conversion | 0.1047 | 51.1133 | 488.02x | 0.1886 | 59.7475 | 0.00 | 0.54 |
+| Audio Multi-Stream Mix | 0.6056 | 18.0746 | 29.84x | 5.8247 | 18.4655 | 0.00 | 0.14 |
 
 ## Suite: `test_geometry.py`
 
-- Effy version string: pypy 3.11.13
-- Pygame version string: cpython 3.13.5
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
 
 | Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Geometry Operations | 2.2212 | 12.9532 | 5.83x | 17.4576 | 20.6741 | 0.00 | 0.03 |
+| Geometry Operations | 0.9833 | 5.8994 | 6.00x | 8.6503 | 6.2413 | 0.00 | 0.03 |
+
+## Suite: `test_events.py`
+
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
+
+| Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Push Events Seq | 3.3493 | 1.0339 | 0.31x | 10.5724 | 1.1976 | 0.00 | 0.00 |
+| Push Many | 0.0048 | 0.7974 | 166.59x | 0.0721 | 0.9771 | 0.00 | 0.00 |
+| Full Cycle | 3.0565 | 3.3936 | 1.11x | 3.0720 | 3.7422 | 0.00 | 0.19 |
+
+## Suite: `test_image.py`
+
+- Effy version string: pypy 3.11.15
+- Pygame version string: cpython 3.14.4
+
+| Test | Effy Avg (ms) | Pygame Avg (ms) | Speedup (Pygame/Effy) | Effy 1% Low (ms) | Pygame 1% Low (ms) | Effy Mem Peak (MB) | Pygame Mem Peak (MB) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Load BMP (64x64) | 0.0939 | 0.0181 | 0.19x | 0.7190 | 0.0461 | 0.00 | 0.00 |
+| Load PNG (64x64) | 0.1504 | 0.0222 | 0.15x | 1.3701 | 0.0282 | 0.00 | 0.00 |
 

@@ -153,6 +153,30 @@ class BlitBilinearCmd:
 
 
 @dataclass(frozen=True, slots=True)
+class FillPolygonCmd:
+    """Command to fill an arbitrary polygon with a solid color.
+
+    Attributes:
+        points: A tuple of vertices defining the polygon.
+        color: The fill Color.
+    """
+    points: tuple[Point, ...]
+    color: Color
+
+
+@dataclass(frozen=True, slots=True)
+class DrawCurveCmd:
+    """Command to draw a Bezier curve (quadratic or cubic).
+
+    Attributes:
+        points: A tuple of 3 (quadratic) or 4 (cubic) control Points.
+        color: The stroke Color.
+    """
+    points: tuple[Point, ...]
+    color: Color
+
+
+@dataclass(frozen=True, slots=True)
 class RenderFieldCmd:
     """Command to render a signed distance field.
 
@@ -173,6 +197,8 @@ DrawCmd = Union[
     DrawCircleCmd,
     FillCircleCmd,
     FillTriangleCmd,
+    FillPolygonCmd,
+    DrawCurveCmd,
     BlitCmd,
     BlitBlendedCmd,
     BlitScaledCmd,
@@ -188,6 +214,8 @@ __all__ = [
     "DrawCircleCmd",
     "FillCircleCmd",
     "FillTriangleCmd",
+    "FillPolygonCmd",
+    "DrawCurveCmd",
     "BlitCmd",
     "BlitBlendedCmd",
     "BlitScaledCmd",

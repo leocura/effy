@@ -23,11 +23,13 @@ from Effy.render.commands import (
     DrawCmd,
     FillRectCmd, DrawRectCmd, DrawLineCmd,
     DrawCircleCmd, FillCircleCmd, FillTriangleCmd,
+    FillPolygonCmd, DrawCurveCmd,
     BlitCmd, BlitBlendedCmd, BlitScaledCmd, BlitBilinearCmd,
     RenderFieldCmd, Field,
 )
 from Effy.render import rasterizer
 from Effy.render.texture import Texture
+from Effy.video.font import BitmapFont
 
 
 class RendererFlags(IntFlag):
@@ -110,6 +112,14 @@ def _dispatch_render_field(cmd: RenderFieldCmd, data: array.array[int], w: int, 
     """Dispatch signed distance field rendering draw command to the software rasterizer."""
     rasterizer.rasterize_field(data, w, h, pitch, cmd.rect, cmd.field, cmd.color)
 
+def _dispatch_fill_polygon(cmd: FillPolygonCmd, data: array.array[int], w: int, h: int, pitch: int) -> None:
+    """Dispatch fill polygon command to the software rasterizer."""
+    rasterizer.rasterize_fill_polygon(data, w, h, pitch, cmd.points, cmd.color)
+
+def _dispatch_draw_curve(cmd: DrawCurveCmd, data: array.array[int], w: int, h: int, pitch: int) -> None:
+    """Dispatch draw curve command to the software rasterizer."""
+    rasterizer.rasterize_draw_curve(data, w, h, pitch, cmd.points, cmd.color)
+
 
 _DISPATCH_TABLE: dict[type[DrawCmd], Callable[[Any, array.array[int], int, int, int], None]] = {
     BlitCmd: _dispatch_blit,
@@ -122,6 +132,8 @@ _DISPATCH_TABLE: dict[type[DrawCmd], Callable[[Any, array.array[int], int, int, 
     DrawCircleCmd: _dispatch_draw_circle,
     FillCircleCmd: _dispatch_fill_circle,
     FillTriangleCmd: _dispatch_fill_triangle,
+    FillPolygonCmd: _dispatch_fill_polygon,
+    DrawCurveCmd: _dispatch_draw_curve,
     RenderFieldCmd: _dispatch_render_field,
 }
 
@@ -429,6 +441,36 @@ def render_fill_triangle(ctx: RenderContext, p1: Point, p2: Point, p3: Point) ->
 
 
 @pure
+def render_fill_polygon(ctx: RenderContext, points: tuple[Point, ...]) -> RenderContext:
+    """Enqueue a filled polygon drawing command.
+
+    Args:
+        ctx: The active RenderContext.
+        points: A tuple of Points defining the polygon.
+
+    Returns:
+        A new RenderContext with FillPolygonCmd appended to the queue.
+    """
+    cmd = FillPolygonCmd(points=points, color=ctx.draw_color)
+    return _append_command(ctx, cmd)
+
+
+@pure
+def render_draw_curve(ctx: RenderContext, points: tuple[Point, ...]) -> RenderContext:
+    """Enqueue a bezier curve drawing command.
+
+    Args:
+        ctx: The active RenderContext.
+        points: A tuple of 3 (Quadratic) or 4 (Cubic) Points defining the curve.
+
+    Returns:
+        A new RenderContext with DrawCurveCmd appended to the queue.
+    """
+    cmd = DrawCurveCmd(points=points, color=ctx.draw_color)
+    return _append_command(ctx, cmd)
+
+
+@pure
 def render_copy_blended(ctx: RenderContext, tex: Texture, src: Rect | None, dst: Rect | None) -> RenderContext:
     """Enqueue a blended blit command to copy a texture region onto the render target with alpha blending.
 
@@ -477,4 +519,51 @@ def render_copy_bilinear(ctx: RenderContext, tex: Texture, src: Rect | None, dst
     """
     cmd = BlitBilinearCmd(src_buffer=tex.buffer, src_rect=src, dst_rect=dst)
     return _append_command(ctx, cmd)
+
+
+@pure
+def render_text(ctx: RenderContext, font: BitmapFont, text: str, x: int, y: int) -> RenderContext:
+    """Enqueue a series of blit commands to render text using a BitmapFont.
+
+    Args:
+        ctx: The active RenderContext.
+        font: The BitmapFont used to render the text.
+        text: The string of text to render.
+        x: X-coordinate of the top-left corner.
+        y: Y-coordinate of the top-left corner.
+
+    Returns:
+        A new RenderContext with the text BlitBlendedCmds appended to the queue.
+    """
+    commands = list(ctx._commands)
+    
+    cursor_x = x
+    cursor_y = y
+    
+    for char in text:
+        if char == '\n':
+            cursor_y += font.glyph_height
+            cursor_x = x
+            continue
+            
+        if char == ' ':
+            cursor_x += font.glyph_width
+            continue
+            
+        src_rect = font.char_map.get(char)
+        if src_rect:
+            dst_rect = Rect(cursor_x, cursor_y, font.glyph_width, font.glyph_height)
+            commands.append(BlitBlendedCmd(src_buffer=font.buffer, src_rect=src_rect, dst_rect=dst_rect))
+            
+        cursor_x += font.glyph_width
+        
+    return RenderContext(
+        window_id=ctx.window_id,
+        width=ctx.width,
+        height=ctx.height,
+        draw_color=ctx.draw_color,
+        _commands=commands,
+        _is_transient=True,
+        flags=ctx.flags
+    )
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 
 from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -23,20 +23,20 @@ class MacOSQuartzAdapter:
         """Detect whether the current platform is macOS."""
         return sys.platform == "darwin"
 
-    def init_video(self) -> Result[Any, SDLError]:
+    def init_video(self) -> Result[Any, EffyError]:
         """Initialize macOS Quartz video subsystem (stub)."""
         # TODO: Equivalent to SDL_Init(SDL_INIT_VIDEO)
-        return Err(SDLError(code=-1, message="macOS Quartz adapter not implemented"))
+        return Err(EffyError(code=-1, message="macOS Quartz adapter not implemented"))
 
     def quit_video(self, handle: Any) -> None:
         """Shut down the macOS Quartz video subsystem (stub)."""
         # TODO: Equivalent to SDL_QuitSubSystem(SDL_INIT_VIDEO)
         pass
 
-    def create_window(self, params: Any) -> Result[Any, SDLError]:
+    def create_window(self, params: Any) -> Result[Any, EffyError]:
         """Create a native macOS window (stub)."""
         # TODO: Equivalent to SDL_CreateWindow
-        return Err(SDLError(code=-1, message="macOS Quartz adapter not implemented"))
+        return Err(EffyError(code=-1, message="macOS Quartz adapter not implemented"))
 
     def destroy_window(self, handle: Any) -> None:
         """Destroy a native macOS window (stub)."""
@@ -68,10 +68,10 @@ class MacOSQuartzAdapter:
         # TODO: Equivalent to SDL_PumpEvents
         pass
 
-    def open_audio(self, spec: Any) -> Result[Any, SDLError]:
+    def open_audio(self, spec: Any) -> Result[Any, EffyError]:
         """Open a macOS CoreAudio device (stub)."""
         # TODO: Implement pure Python audio via CoreAudio
-        return Err(SDLError(code=-1, message="macOS Quartz adapter not implemented"))
+        return Err(EffyError(code=-1, message="macOS Quartz adapter not implemented"))
 
     def write_audio(self, handle: Any, data: bytes) -> None:
         """Write audio data to an open CoreAudio device (stub)."""
@@ -148,7 +148,7 @@ class MacOSQuartzAdapter:
         from Effy.input.sensors import SensorState
         return SensorState(devices=frozenset())
 
-    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, SDLError]:
+    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
         """Open a haptic device for play back."""
         from Effy.platform import PlatformHapticHandle
         return Ok(PlatformHapticHandle(device_id))
@@ -161,25 +161,25 @@ class MacOSQuartzAdapter:
         """Determine whether rumble is supported on this haptic device."""
         return False
 
-    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, SDLError]:
+    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, EffyError]:
         """Play a simple rumble effect on the haptic device."""
-        return Err(SDLError(code=-1, message="Rumble not implemented on macOS Quartz stub"))
+        return Err(EffyError(code=-1, message="Rumble not implemented on macOS Quartz stub"))
 
-    def stop_rumble(self, device_id: int) -> Result[None, SDLError]:
+    def stop_rumble(self, device_id: int) -> Result[None, EffyError]:
         """Stop rumble playback on the haptic device."""
-        return Err(SDLError(code=-1, message="Rumble not implemented on macOS Quartz stub"))
+        return Err(EffyError(code=-1, message="Rumble not implemented on macOS Quartz stub"))
 
-    def upload_effect(self, device_id: int, effect: Any) -> Result[int, SDLError]:
+    def upload_effect(self, device_id: int, effect: Any) -> Result[int, EffyError]:
         """Upload a custom haptic effect to the haptic device."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
 
-    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, SDLError]:
+    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, EffyError]:
         """Run a previously uploaded custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
 
-    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, SDLError]:
+    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, EffyError]:
         """Stop playback of a custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on macOS Quartz stub"))
 
     def destroy_effect(self, device_id: int, effect_id: int) -> None:
         """Destroy an uploaded haptic effect to release memory."""
@@ -216,17 +216,17 @@ class MacOSQuartzAdapter:
         except Exception:
             pass
 
-    def get_clipboard_data(self, mime_type: str) -> Result[bytes, SDLError]:
+    def get_clipboard_data(self, mime_type: str) -> Result[bytes, EffyError]:
         """Get binary data for a specific MIME type from the macOS clipboard using in-memory fallback."""
         if mime_type in self._clipboard_data:
             return Ok(self._clipboard_data[mime_type])
-        return Err(SDLError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
+        return Err(EffyError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
 
-    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, SDLError]:
+    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, EffyError]:
         """Set binary data for a specific MIME type in the macOS clipboard using in-memory fallback."""
         self._clipboard_data[mime_type] = data
         return Ok(None)
 
-    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, SDLError]:
+    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, EffyError]:
         """Hardware-accelerated rendering stub. macOS Quartz stub does not support accelerated presentation."""
-        return Err(SDLError(code=-1, message="Hardware acceleration not supported on this platform"))
+        return Err(EffyError(code=-1, message="Hardware acceleration not supported on this platform"))

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import threading
 from Effy.types import Effect, Result, Err
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy._internal.registry import get_platform_adapter
 
 # Thread-safe in-memory history storage
@@ -71,24 +71,24 @@ def clear_clipboard_history() -> Effect[None]:
             _clipboard_history.clear()
     return Effect(_run)
 
-def get_clipboard_data(mime_type: str) -> Effect[Result[bytes, SDLError]]:
+def get_clipboard_data(mime_type: str) -> Effect[Result[bytes, EffyError]]:
     """Get binary data for a specific MIME type from the system clipboard.
 
     Args:
         mime_type: The MIME format string (e.g. 'application/json').
 
     Returns:
-        An Effect wrapping the Result containing either the data bytes or an SDLError.
+        An Effect wrapping the Result containing either the data bytes or an EffyError.
     """
-    def _run() -> Result[bytes, SDLError]:
+    def _run() -> Result[bytes, EffyError]:
         """Thunk implementing native platform clipboard custom MIME data retrieval logic."""
         adapter = get_platform_adapter()
         if adapter:
             return adapter.get_clipboard_data(mime_type)
-        return Err(SDLError(code=-1, message="Active platform adapter does not support custom clipboard data"))
+        return Err(EffyError(code=-1, message="Active platform adapter does not support custom clipboard data"))
     return Effect(_run)
 
-def set_clipboard_data(mime_type: str, data: bytes) -> Effect[Result[None, SDLError]]:
+def set_clipboard_data(mime_type: str, data: bytes) -> Effect[Result[None, EffyError]]:
     """Set binary data for a specific MIME type in the system clipboard.
 
     Args:
@@ -96,14 +96,14 @@ def set_clipboard_data(mime_type: str, data: bytes) -> Effect[Result[None, SDLEr
         data: The binary data to copy.
 
     Returns:
-        An Effect wrapping the Result indicating success or carrying an SDLError.
+        An Effect wrapping the Result indicating success or carrying an EffyError.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing native platform clipboard custom MIME data update logic."""
         adapter = get_platform_adapter()
         if adapter:
             return adapter.set_clipboard_data(mime_type, data)
-        return Err(SDLError(code=-1, message="Active platform adapter does not support custom clipboard data"))
+        return Err(EffyError(code=-1, message="Active platform adapter does not support custom clipboard data"))
     return Effect(_run)
 
 __all__ = [

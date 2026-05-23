@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 
 if TYPE_CHECKING:
     from Effy.platform import PlatformHapticHandle, PlatformAudioHandle
@@ -90,7 +90,7 @@ class HeadlessAdapter:
         """Pump the simulated event queue (no-op)."""
         pass
         
-    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, SDLError]:
+    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, EffyError]:
         """Open a simulated audio device for headless testing."""
         from Effy.platform import PlatformAudioHandle
         return Ok(PlatformAudioHandle(1))
@@ -133,7 +133,7 @@ class HeadlessAdapter:
         from Effy.input.sensors import SensorState
         return SensorState(devices=frozenset(self._sensors.values()))
 
-    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, SDLError]:
+    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
         """Open a simulated haptic device."""
         self._haptics_opened.add(device_id)
         from Effy.platform import PlatformHapticHandle
@@ -147,24 +147,24 @@ class HeadlessAdapter:
         """Check whether rumble is supported on the simulated device."""
         return device_id in self._haptics_rumble_supported
 
-    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, SDLError]:
+    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, EffyError]:
         """Play a rumble effect on the simulated haptic device."""
         if device_id not in self._haptics_opened:
-            return Err(SDLError(code=-1, message="Device not open"))
+            return Err(EffyError(code=-1, message="Device not open"))
         self._haptics_playing_rumble[device_id] = (strength, duration_ms)
         return Ok(None)
 
-    def stop_rumble(self, device_id: int) -> Result[None, SDLError]:
+    def stop_rumble(self, device_id: int) -> Result[None, EffyError]:
         """Stop the rumble effect on the simulated haptic device."""
         if device_id not in self._haptics_opened:
-            return Err(SDLError(code=-1, message="Device not open"))
+            return Err(EffyError(code=-1, message="Device not open"))
         self._haptics_playing_rumble.pop(device_id, None)
         return Ok(None)
 
-    def upload_effect(self, device_id: int, effect: Any) -> Result[int, SDLError]:
+    def upload_effect(self, device_id: int, effect: Any) -> Result[int, EffyError]:
         """Upload a haptic effect to the simulated device and return its ID."""
         if device_id not in self._haptics_opened:
-            return Err(SDLError(code=-1, message="Device not open"))
+            return Err(EffyError(code=-1, message="Device not open"))
         eff_id = self._haptics_next_effect_id
         self._haptics_next_effect_id += 1
         if device_id not in self._haptics_effects:
@@ -172,21 +172,21 @@ class HeadlessAdapter:
         self._haptics_effects[device_id][eff_id] = effect
         return Ok(eff_id)
 
-    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, SDLError]:
+    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, EffyError]:
         """Run a previously uploaded haptic effect on the simulated device."""
         if device_id not in self._haptics_opened:
-            return Err(SDLError(code=-1, message="Device not open"))
+            return Err(EffyError(code=-1, message="Device not open"))
         if device_id not in self._haptics_effects or effect_id not in self._haptics_effects[device_id]:
-            return Err(SDLError(code=-1, message="Effect not found"))
+            return Err(EffyError(code=-1, message="Effect not found"))
         if device_id not in self._haptics_running_effects:
             self._haptics_running_effects[device_id] = set()
         self._haptics_running_effects[device_id].add(effect_id)
         return Ok(None)
 
-    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, SDLError]:
+    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, EffyError]:
         """Stop a running haptic effect on the simulated device."""
         if device_id not in self._haptics_opened:
-            return Err(SDLError(code=-1, message="Device not open"))
+            return Err(EffyError(code=-1, message="Device not open"))
         if device_id in self._haptics_running_effects:
             self._haptics_running_effects[device_id].discard(effect_id)
         return Ok(None)
@@ -247,17 +247,17 @@ class HeadlessAdapter:
         """Set the mocked clipboard text."""
         self._clipboard_text = text
 
-    def get_clipboard_data(self, mime_type: str) -> Result[bytes, SDLError]:
+    def get_clipboard_data(self, mime_type: str) -> Result[bytes, EffyError]:
         """Get the mocked clipboard data for a MIME type."""
         if mime_type in self._clipboard_data:
             return Ok(self._clipboard_data[mime_type])
-        return Err(SDLError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
+        return Err(EffyError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
 
-    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, SDLError]:
+    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, EffyError]:
         """Set the mocked clipboard data for a MIME type."""
         self._clipboard_data[mime_type] = data
         return Ok(None)
 
-    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, SDLError]:
+    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, EffyError]:
         """Hardware-accelerated rendering stub. Headless mode does not support accelerated presentation."""
-        return Err(SDLError(code=-1, message="Hardware acceleration not supported on this platform"))
+        return Err(EffyError(code=-1, message="Hardware acceleration not supported on this platform"))

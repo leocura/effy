@@ -1,3 +1,8 @@
+"""Optional SDL2-style compatible functional names.
+
+This module provides compatibility mappings and names aligned with the Simple DirectMedia Layer (SDL2) API.
+SDL2 is copyright (C) 1997-2026 Sam Lantinga and other contributors, and is distributed under the zlib License.
+"""
 from __future__ import annotations
 
 # Flags and Enums
@@ -8,6 +13,7 @@ from Effy.render import RendererFlags
 # Core types
 from Effy.types import Color as SDL_Color
 from Effy.video import Rect as SDL_Rect, Point as SDL_Point
+from Effy.error import SDLError, EffyError as SDL_Error
 from Effy.events import (
     Event as SDL_Event,
     FingerDownEvent as SDL_FingerDownEvent,
@@ -124,7 +130,7 @@ SDL_RENDERER_PRESENTVSYNC = RendererFlags.PRESENTVSYNC
 SDL_RENDERER_TARGETTEXTURE = RendererFlags.TARGETTEXTURE
 
 __all__ = [
-    "SDL_Color", "SDL_Rect", "SDL_Point", "SDL_Event",
+    "SDL_Color", "SDL_Rect", "SDL_Point", "SDL_Event", "SDLError", "SDL_Error",
     "SDL_Init", "SDL_Quit", "SDL_CreateWindow", "SDL_DestroyWindow",
     "SDL_SetWindowTitle", "SDL_SetWindowSize", "SDL_SetWindowPosition",
     "SDL_MinimizeWindow", "SDL_MaximizeWindow", "SDL_RestoreWindow",

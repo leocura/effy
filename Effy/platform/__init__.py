@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Protocol, NewType, TYPE_CHECKING
 from Effy._internal.result import Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 
 # Opaque handles — typed NewTypes instead of Any
 PlatformWindowHandle = NewType("PlatformWindowHandle", int)
@@ -32,7 +32,7 @@ class PlatformAdapter(Protocol):
     polling, audio I/O, input queries, haptics) that the imperative shell delegates to.
     """
 
-    def init_video(self) -> Result[PlatformVideoHandle, SDLError]:
+    def init_video(self) -> Result[PlatformVideoHandle, EffyError]:
         """Initialize the platform video subsystem."""
         ...
 
@@ -40,7 +40,7 @@ class PlatformAdapter(Protocol):
         """Shut down the platform video subsystem."""
         ...
 
-    def create_window(self, params: WindowParams) -> Result[PlatformWindowHandle, SDLError]:
+    def create_window(self, params: WindowParams) -> Result[PlatformWindowHandle, EffyError]:
         """Create a native platform window."""
         ...
 
@@ -68,7 +68,7 @@ class PlatformAdapter(Protocol):
         """Process native OS messages and populate the internal event queue."""
         ...
 
-    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, SDLError]:
+    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, EffyError]:
         """Open a native audio output device."""
         ...
 
@@ -140,7 +140,7 @@ class PlatformAdapter(Protocol):
         """Return a snapshot of the current sensor readings."""
         ...
 
-    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, SDLError]:
+    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
         """Open a haptic device for force feedback."""
         ...
 
@@ -154,29 +154,29 @@ class PlatformAdapter(Protocol):
 
     def play_rumble(
         self, handle: PlatformHapticHandle, strength: float, duration_ms: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Play a simple rumble effect."""
         ...
 
-    def stop_rumble(self, handle: PlatformHapticHandle) -> Result[None, SDLError]:
+    def stop_rumble(self, handle: PlatformHapticHandle) -> Result[None, EffyError]:
         """Stop an active rumble effect."""
         ...
 
     def upload_effect(
         self, handle: PlatformHapticHandle, effect: HapticEffect
-    ) -> Result[int, SDLError]:
+    ) -> Result[int, EffyError]:
         """Upload a custom haptic effect to the device."""
         ...
 
     def run_effect(
         self, handle: PlatformHapticHandle, effect_id: int, iterations: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Run a previously uploaded haptic effect."""
         ...
 
     def stop_effect(
         self, handle: PlatformHapticHandle, effect_id: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Stop a running haptic effect."""
         ...
 
@@ -192,17 +192,17 @@ class PlatformAdapter(Protocol):
         """Set text in the system clipboard."""
         ...
 
-    def get_clipboard_data(self, mime_type: str) -> Result[bytes, SDLError]:
+    def get_clipboard_data(self, mime_type: str) -> Result[bytes, EffyError]:
         """Get binary data for a specific MIME type from the clipboard."""
         ...
 
-    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, SDLError]:
+    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, EffyError]:
         """Set binary data for a specific MIME type in the clipboard."""
         ...
 
     def present_accelerated(
         self, handle: PlatformWindowHandle, commands: list[DrawCmd], width: int, height: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Present the deferred commands using hardware acceleration.
 
         Args:

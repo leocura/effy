@@ -16,7 +16,7 @@ from Effy.types import WindowID, Effect, Result, Ok, Err, Color
 from Effy.video.surface import PixelBuffer
 from Effy.video.window import Window
 from Effy.video.rect import Rect, Point
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy._internal.registry import get_platform_adapter, get_window_handle
 from Effy._internal.fp import pure
 from Effy.render.commands import (
@@ -166,7 +166,7 @@ def create_renderer(
     window: Window,
     index: int = -1,
     flags: RendererFlags = RendererFlags.SOFTWARE,
-) -> Effect[Result[RenderContext, SDLError]]:
+) -> Effect[Result[RenderContext, EffyError]]:
     """Create a new rendering context for a given window.
 
     Args:
@@ -175,13 +175,13 @@ def create_renderer(
         flags: The configuration flags for the renderer.
 
     Returns:
-        An Effect wrapping a Result that contains either the RenderContext or an SDLError.
+        An Effect wrapping a Result that contains either the RenderContext or an EffyError.
     """
-    def _run() -> Result[RenderContext, SDLError]:
+    def _run() -> Result[RenderContext, EffyError]:
         """Thunk implementing platform rendering context creation logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="SDL not initialized"))
+            return Err(EffyError(code=-1, message="SDL not initialized"))
         return Ok(RenderContext(
             window_id=window.id,
             width=window.w,

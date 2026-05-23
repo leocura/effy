@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 from Effy.types import Effect, Result, Ok, Err
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy.init.flags import InitFlag
 from Effy._internal.registry import set_platform_adapter, get_platform_adapter
 from Effy.platform import get_best_adapter
@@ -22,7 +22,7 @@ class InitContext:
     video_handle: Any = None
     audio_handle: Any = None
 
-def init(flags: InitFlag) -> Effect[Result[InitContext, SDLError]]:
+def init(flags: InitFlag) -> Effect[Result[InitContext, EffyError]]:
     """Initialize the requested Effy subsystems.
 
     Detects the best available platform adapter and initializes the video
@@ -32,9 +32,9 @@ def init(flags: InitFlag) -> Effect[Result[InitContext, SDLError]]:
         flags: Bitmask of InitFlag values selecting which subsystems to start.
 
     Returns:
-        An Effect resolving to a Result containing the InitContext or an SDLError.
+        An Effect resolving to a Result containing the InitContext or an EffyError.
     """
-    def _run() -> Result[InitContext, SDLError]:
+    def _run() -> Result[InitContext, EffyError]:
         """Thunk implementing platform subsystem detection and initialization logic."""
         # Platform detection
         adapter = get_platform_adapter() or get_best_adapter()
@@ -44,14 +44,14 @@ def init(flags: InitFlag) -> Effect[Result[InitContext, SDLError]]:
         if flags & InitFlag.VIDEO:
             res = adapter.init_video()
             if isinstance(res, Err):
-                return cast(Result[InitContext, SDLError], res)
+                return cast(Result[InitContext, EffyError], res)
             video_handle = res.value
 
         audio_handle = None
         if flags & InitFlag.AUDIO:
             res_audio = adapter.open_audio(None) # Default spec for now
             if isinstance(res_audio, Err):
-                return cast(Result[InitContext, SDLError], res_audio)
+                return cast(Result[InitContext, EffyError], res_audio)
             audio_handle = res_audio.value
 
         return Ok(InitContext(flags=flags, video_handle=video_handle, audio_handle=audio_handle))

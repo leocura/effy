@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from Effy.types import Effect
 from Effy._internal.result import Result, Err
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy._internal.registry import get_platform_adapter
 from Effy.platform import PlatformHapticHandle
 
@@ -29,20 +29,20 @@ class HapticDevice:
     name: str
 
 
-def open_haptic_device(device_id: int) -> Effect[Result[HapticDevice, SDLError]]:
+def open_haptic_device(device_id: int) -> Effect[Result[HapticDevice, EffyError]]:
     """Open a haptic device for force feedback.
 
     Args:
         device_id: The index/ID of the device to open.
 
     Returns:
-        An Effect resolving to a Result containing the HapticDevice or an SDLError.
+        An Effect resolving to a Result containing the HapticDevice or an EffyError.
     """
-    def _run() -> Result[HapticDevice, SDLError]:
+    def _run() -> Result[HapticDevice, EffyError]:
         """Thunk implementing platform haptic device opening logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic subsystem not available"))
+            return Err(EffyError(code=-1, message="Haptic subsystem not available"))
         res = adapter.open_haptic(device_id)
         return res.map(lambda h: HapticDevice(device_id=h, name=f"Haptic Device {device_id}"))
     return Effect(_run)
@@ -85,7 +85,7 @@ def is_haptic_rumble_supported(device: HapticDevice) -> Effect[bool]:
 
 def play_haptic_rumble(
     device: HapticDevice, strength: float, duration_ms: int
-) -> Effect[Result[None, SDLError]]:
+) -> Effect[Result[None, EffyError]]:
     """Play a simple rumble effect on the device.
 
     Args:
@@ -96,16 +96,16 @@ def play_haptic_rumble(
     Returns:
         An Effect resolving to a Result indicating success or failure.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing platform haptic rumble playback logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic rumble not supported"))
+            return Err(EffyError(code=-1, message="Haptic rumble not supported"))
         return adapter.play_rumble(device.device_id, strength, duration_ms)
     return Effect(_run)
 
 
-def stop_haptic_rumble(device: HapticDevice) -> Effect[Result[None, SDLError]]:
+def stop_haptic_rumble(device: HapticDevice) -> Effect[Result[None, EffyError]]:
     """Stop any active rumble effect on the device.
 
     Args:
@@ -114,18 +114,18 @@ def stop_haptic_rumble(device: HapticDevice) -> Effect[Result[None, SDLError]]:
     Returns:
         An Effect resolving to a Result indicating success or failure.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing platform haptic rumble stop logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic rumble not supported"))
+            return Err(EffyError(code=-1, message="Haptic rumble not supported"))
         return adapter.stop_rumble(device.device_id)
     return Effect(_run)
 
 
 def upload_haptic_effect(
     device: HapticDevice, effect: HapticEffect
-) -> Effect[Result[int, SDLError]]:
+) -> Effect[Result[int, EffyError]]:
     """Upload a custom haptic effect to the device.
 
     Args:
@@ -133,13 +133,13 @@ def upload_haptic_effect(
         effect: The HapticEffect description to upload.
 
     Returns:
-        An Effect resolving to a Result containing the assigned effect ID or an SDLError.
+        An Effect resolving to a Result containing the assigned effect ID or an EffyError.
     """
-    def _run() -> Result[int, SDLError]:
+    def _run() -> Result[int, EffyError]:
         """Thunk implementing platform custom haptic effect upload logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic custom effects not supported"))
+            return Err(EffyError(code=-1, message="Haptic custom effects not supported"))
         return adapter.upload_effect(device.device_id, effect)
     return Effect(_run)
 
@@ -148,7 +148,7 @@ def run_haptic_effect(
     device: HapticDevice,
     effect_id: int,
     iterations: int = 1,
-) -> Effect[Result[None, SDLError]]:
+) -> Effect[Result[None, EffyError]]:
     """Run an uploaded haptic effect.
 
     Args:
@@ -159,16 +159,16 @@ def run_haptic_effect(
     Returns:
         An Effect resolving to a Result indicating success or failure.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing platform custom haptic effect execution logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic custom effects not supported"))
+            return Err(EffyError(code=-1, message="Haptic custom effects not supported"))
         return adapter.run_effect(device.device_id, effect_id, iterations)
     return Effect(_run)
 
 
-def stop_haptic_effect(device: HapticDevice, effect_id: int) -> Effect[Result[None, SDLError]]:
+def stop_haptic_effect(device: HapticDevice, effect_id: int) -> Effect[Result[None, EffyError]]:
     """Stop a running haptic effect.
 
     Args:
@@ -178,11 +178,11 @@ def stop_haptic_effect(device: HapticDevice, effect_id: int) -> Effect[Result[No
     Returns:
         An Effect resolving to a Result indicating success or failure.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing platform custom haptic effect stop logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="Haptic custom effects not supported"))
+            return Err(EffyError(code=-1, message="Haptic custom effects not supported"))
         return adapter.stop_effect(device.device_id, effect_id)
     return Effect(_run)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from Effy.audio.types import AudioBuffer, AudioSpec
 from Effy._internal.fp import pure
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 from typing import Protocol, Sequence
 
 
@@ -36,7 +36,7 @@ def silence(spec: AudioSpec) -> AudioBuffer:
 
 
 @pure
-def mix_buffers(a: AudioBuffer, b: AudioBuffer) -> Result[AudioBuffer, SDLError]:
+def mix_buffers(a: AudioBuffer, b: AudioBuffer) -> Result[AudioBuffer, EffyError]:
     """Mix two audio buffers. Assumes they have the same specification.
     
     Args:
@@ -44,10 +44,10 @@ def mix_buffers(a: AudioBuffer, b: AudioBuffer) -> Result[AudioBuffer, SDLError]
         b: Second AudioBuffer.
         
     Returns:
-        A Result wrapping a brand-new AudioBuffer containing the mixed signal, or an SDLError.
+        A Result wrapping a brand-new AudioBuffer containing the mixed signal, or an EffyError.
     """
     if a.spec != b.spec:
-        return Err(SDLError(code=-1, message="Audio specifications must match"))
+        return Err(EffyError(code=-1, message="Audio specifications must match"))
     
     spec = a.spec
     num_elements = spec.samples * spec.channels
@@ -79,7 +79,7 @@ def mix_buffers(a: AudioBuffer, b: AudioBuffer) -> Result[AudioBuffer, SDLError]
 
 
 @pure
-def mix_streams(streams: Sequence[AudioStream], frames: int, spec: AudioSpec) -> Result[AudioBuffer, SDLError]:
+def mix_streams(streams: Sequence[AudioStream], frames: int, spec: AudioSpec) -> Result[AudioBuffer, EffyError]:
     """Mix multiple audio streams into a single buffer.
     
     Args:
@@ -88,12 +88,12 @@ def mix_streams(streams: Sequence[AudioStream], frames: int, spec: AudioSpec) ->
         spec: The AudioSpec for mixing.
         
     Returns:
-        A Result wrapping a brand-new AudioBuffer containing the combined mixed streams, or an SDLError.
+        A Result wrapping a brand-new AudioBuffer containing the combined mixed streams, or an EffyError.
     """
-    res: Result[AudioBuffer, SDLError] = Ok(silence(spec))
+    res: Result[AudioBuffer, EffyError] = Ok(silence(spec))
     for s in streams:
         buf = s.pull(frames)
-        def mix_step(current: AudioBuffer) -> Result[AudioBuffer, SDLError]:
+        def mix_step(current: AudioBuffer) -> Result[AudioBuffer, EffyError]:
             """Inner helper function to mix the current accumulated buffer with the stream's buffer."""
             return mix_buffers(current, buf)
         res = res.and_then(mix_step)

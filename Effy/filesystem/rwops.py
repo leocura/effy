@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from Effy.types import Effect, Result, Ok, Err
-from Effy.error import SDLError
+from Effy.error import EffyError
 
 from Effy._internal.fp import pure
 
@@ -66,26 +66,26 @@ class RWops:
         pos = max(0, min(pos, len(self.data)))
         return RWops(data=self.data, position=pos)
 
-def rw_from_file(path: str) -> Effect[Result[RWops, SDLError]]:
+def rw_from_file(path: str) -> Effect[Result[RWops, EffyError]]:
     """Read an entire file into an RWops buffer.
 
     Args:
         path: Filesystem path to read from.
 
     Returns:
-        An Effect resolving to a Result containing the loaded RWops or an SDLError.
+        An Effect resolving to a Result containing the loaded RWops or an EffyError.
     """
-    def _run() -> Result[RWops, SDLError]:
+    def _run() -> Result[RWops, EffyError]:
         """Thunk implementing file reading and loading logic."""
         try:
             with open(path, "rb") as f:
                 data = f.read()
             return Ok(RWops(data=data))
         except Exception as e:
-            return Err(SDLError(code=-1, message=str(e)))
+            return Err(EffyError(code=-1, message=str(e)))
     return Effect(_run)
 
-def rw_to_file(rw: RWops, path: str) -> Effect[Result[None, SDLError]]:
+def rw_to_file(rw: RWops, path: str) -> Effect[Result[None, EffyError]]:
     """Write the contents of an RWops buffer to a file.
 
     Args:
@@ -93,15 +93,15 @@ def rw_to_file(rw: RWops, path: str) -> Effect[Result[None, SDLError]]:
         path: Filesystem path to write to.
 
     Returns:
-        An Effect resolving to a Result indicating success or an SDLError.
+        An Effect resolving to a Result indicating success or an EffyError.
     """
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing file writing and serialization logic."""
         try:
             with open(path, "wb") as f:
                 f.write(rw.data)
             return Ok(None)
         except Exception as e:
-            return Err(SDLError(code=-1, message=str(e)))
+            return Err(EffyError(code=-1, message=str(e)))
     return Effect(_run)
 

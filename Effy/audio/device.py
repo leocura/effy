@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import cast
 from Effy.types import Effect
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy._internal.registry import get_platform_adapter
 from Effy.audio.types import AudioSpec, AudioBuffer, AudioDevice
 from Effy.platform import PlatformAudioHandle
@@ -11,29 +11,29 @@ def open_audio_device(
     device: str | None,
     is_capture: bool,
     desired: AudioSpec,
-) -> Effect[Result[AudioDevice, SDLError]]:
+) -> Effect[Result[AudioDevice, EffyError]]:
     """Open an audio device for playback or capture."""
-    def _run() -> Result[AudioDevice, SDLError]:
+    def _run() -> Result[AudioDevice, EffyError]:
         """Thunk implementing native platform audio opening logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="No platform adapter initialized"))
+            return Err(EffyError(code=-1, message="No platform adapter initialized"))
         
         res = adapter.open_audio(desired)
         if isinstance(res, Err):
-            return cast(Result[AudioDevice, SDLError], res)
+            return cast(Result[AudioDevice, EffyError], res)
         
         handle = res.value
         return Ok(AudioDevice(id=handle, spec=desired))
     return Effect(_run)
 
-def queue_audio(device: AudioDevice, buf: AudioBuffer) -> Effect[Result[None, SDLError]]:
+def queue_audio(device: AudioDevice, buf: AudioBuffer) -> Effect[Result[None, EffyError]]:
     """Queue audio data to the given audio device."""
-    def _run() -> Result[None, SDLError]:
+    def _run() -> Result[None, EffyError]:
         """Thunk implementing native platform audio queueing/writing logic."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="No platform adapter initialized"))
+            return Err(EffyError(code=-1, message="No platform adapter initialized"))
         
         adapter.write_audio(cast(PlatformAudioHandle, device.id), bytes(buf._data))
         return Ok(None)

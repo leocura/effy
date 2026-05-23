@@ -3,7 +3,7 @@ import sys
 import ctypes
 from typing import Any, TYPE_CHECKING
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy.platform import PlatformAudioHandle
 
 if TYPE_CHECKING:
@@ -467,12 +467,12 @@ class LinuxX11Adapter:
         gl.glTexCoord2f.restype = None
 
 
-    def init_video(self) -> Result[Any, SDLError]:
+    def init_video(self) -> Result[Any, EffyError]:
         """Connect to the X display and prepare the video system."""
         try:
             self._x11 = ctypes.cdll.LoadLibrary("libX11.so")
         except Exception as e:
-            return Err(SDLError(code=-1, message=f"Failed to load libX11.so: {e}"))
+            return Err(EffyError(code=-1, message=f"Failed to load libX11.so: {e}"))
 
         self._x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
         self._x11.XOpenDisplay.restype = ctypes.c_void_p
@@ -571,7 +571,7 @@ class LinuxX11Adapter:
         display = self._x11.XOpenDisplay(None)
 
         if not display:
-            return Err(SDLError(code=-1, message="Failed to open X display (is DISPLAY env var set?)"))
+            return Err(EffyError(code=-1, message="Failed to open X display (is DISPLAY env var set?)"))
 
         self._display = display
         self._screen = self._x11.XDefaultScreen(display)
@@ -619,10 +619,10 @@ class LinuxX11Adapter:
             return ctypes.cast(vi_ptr, ctypes.POINTER(XVisualInfo)).contents
         return None
 
-    def create_window(self, params: Any) -> Result[Any, SDLError]:
+    def create_window(self, params: Any) -> Result[Any, EffyError]:
         """Create a native X11 window."""
         if not self._display:
-            return Err(SDLError(code=-1, message="Video system not initialized"))
+            return Err(EffyError(code=-1, message="Video system not initialized"))
 
         title = getattr(params, "title", "Effy Window")
         x = getattr(params, "x", 0)
@@ -656,7 +656,7 @@ class LinuxX11Adapter:
             )
 
         if not window:
-            return Err(SDLError(code=-1, message="Failed to create X11 window"))
+            return Err(EffyError(code=-1, message="Failed to create X11 window"))
 
         # Set title
         self._x11.XStoreName(self._display, window, title.encode('utf-8'))
@@ -778,7 +778,7 @@ class LinuxX11Adapter:
         self._gl_texture_cache[buf_id] = (tex_id, src_buffer.width, src_buffer.height)
         return tex_id
 
-    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, SDLError]:
+    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, EffyError]:
         """Present the deferred commands using hardware-accelerated OpenGL/GLX.
 
         Args:
@@ -791,15 +791,15 @@ class LinuxX11Adapter:
             A Result wrapper representing success or failure.
         """
         if not self._x11_gl:
-            return Err(SDLError(code=-1, message="OpenGL/GLX not initialized"))
+            return Err(EffyError(code=-1, message="OpenGL/GLX not initialized"))
 
         if handle not in self._gl_contexts:
             vi = self._choose_gl_visual()
             if not vi:
-                return Err(SDLError(code=-1, message="Failed to choose GLX visual"))
+                return Err(EffyError(code=-1, message="Failed to choose GLX visual"))
             gl_context = self._x11_gl.glXCreateContext(self._display, ctypes.byref(vi), None, True)
             if not gl_context:
-                return Err(SDLError(code=-1, message="Failed to create GLX context"))
+                return Err(EffyError(code=-1, message="Failed to create GLX context"))
             self._gl_contexts[handle] = gl_context
 
         gl_context = self._gl_contexts[handle]
@@ -1145,7 +1145,7 @@ class LinuxX11Adapter:
                 time.sleep(0.001)
         return None
 
-    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, SDLError]:
+    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, EffyError]:
         """Open a native Linux audio hardware playback output (PulseAudio/ALSA) or fall back to dummy."""
         from Effy.audio.types import AudioSpec, AudioFormat
         if spec is None:
@@ -1279,7 +1279,7 @@ class LinuxX11Adapter:
         from Effy.input.sensors import SensorState
         return SensorState(devices=frozenset())
 
-    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, SDLError]:
+    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
         """Open a haptic device for play back."""
         from Effy.platform import PlatformHapticHandle
         return Ok(PlatformHapticHandle(device_id))
@@ -1292,25 +1292,25 @@ class LinuxX11Adapter:
         """Determine whether rumble is supported on this haptic device."""
         return False
 
-    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, SDLError]:
+    def play_rumble(self, device_id: int, strength: float, duration_ms: int) -> Result[None, EffyError]:
         """Play a simple rumble effect on the haptic device."""
-        return Err(SDLError(code=-1, message="Rumble not implemented on Linux X11 stub"))
+        return Err(EffyError(code=-1, message="Rumble not implemented on Linux X11 stub"))
 
-    def stop_rumble(self, device_id: int) -> Result[None, SDLError]:
+    def stop_rumble(self, device_id: int) -> Result[None, EffyError]:
         """Stop rumble playback on the haptic device."""
-        return Err(SDLError(code=-1, message="Rumble not implemented on Linux X11 stub"))
+        return Err(EffyError(code=-1, message="Rumble not implemented on Linux X11 stub"))
 
-    def upload_effect(self, device_id: int, effect: Any) -> Result[int, SDLError]:
+    def upload_effect(self, device_id: int, effect: Any) -> Result[int, EffyError]:
         """Upload a custom haptic effect to the haptic device."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
 
-    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, SDLError]:
+    def run_effect(self, device_id: int, effect_id: int, iterations: int) -> Result[None, EffyError]:
         """Run a previously uploaded custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
 
-    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, SDLError]:
+    def stop_effect(self, device_id: int, effect_id: int) -> Result[None, EffyError]:
         """Stop playback of a custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not implemented on Linux X11 stub"))
 
     def destroy_effect(self, device_id: int, effect_id: int) -> None:
         """Destroy an uploaded haptic effect to release memory."""
@@ -1436,7 +1436,7 @@ class LinuxX11Adapter:
         except Exception:
             pass
 
-    def get_clipboard_data(self, mime_type: str) -> Result[bytes, SDLError]:
+    def get_clipboard_data(self, mime_type: str) -> Result[bytes, EffyError]:
         """Get binary data for a specific MIME type from the X11 clipboard using xclip or in-memory fallback."""
         import subprocess
         try:
@@ -1452,9 +1452,9 @@ class LinuxX11Adapter:
 
         if mime_type in self._clipboard_data:
             return Ok(self._clipboard_data[mime_type])
-        return Err(SDLError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
+        return Err(EffyError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
 
-    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, SDLError]:
+    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, EffyError]:
         """Set binary data for a specific MIME type in the X11 clipboard using xclip or in-memory fallback."""
         import subprocess
         self._clipboard_data[mime_type] = data

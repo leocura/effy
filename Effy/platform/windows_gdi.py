@@ -4,7 +4,7 @@ import ctypes
 from ctypes import wintypes
 from typing import Any, cast, TYPE_CHECKING
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy.platform import PlatformAudioHandle
 
 if TYPE_CHECKING:
@@ -326,10 +326,10 @@ class WindowsGDIAdapter:
         """Return True if running on Windows."""
         return sys.platform == "win32"
 
-    def init_video(self) -> Result[Any, SDLError]:
+    def init_video(self) -> Result[Any, EffyError]:
         """Initialize the Windows GDI video subsystem and register the window class."""
         if sys.platform != "win32":
-             return Err(SDLError(code=-1, message="Not on Windows"))
+             return Err(EffyError(code=-1, message="Not on Windows"))
 
         self._h_instance = windll.kernel32.GetModuleHandleW(None)
         
@@ -349,7 +349,7 @@ class WindowsGDIAdapter:
         
         atom = windll.user32.RegisterClassExW(ctypes.byref(wndclass))
         if not atom:
-            return Err(SDLError(code=-1, message="Failed to register window class"))
+            return Err(EffyError(code=-1, message="Failed to register window class"))
             
         self._class_atom = atom
         return Ok("windows_video_handle")
@@ -360,10 +360,10 @@ class WindowsGDIAdapter:
             if self._class_atom:
                 windll.user32.UnregisterClassW(self._class_name, self._h_instance)
         
-    def create_window(self, params: Any) -> Result[Any, SDLError]:
+    def create_window(self, params: Any) -> Result[Any, EffyError]:
         """Create a native Win32 window using CreateWindowExW."""
         if sys.platform != "win32":
-             return Err(SDLError(code=-1, message="Not on Windows"))
+             return Err(EffyError(code=-1, message="Not on Windows"))
 
         title = getattr(params, "title", "Effy Window")
         w = getattr(params, "w", 640)
@@ -383,7 +383,7 @@ class WindowsGDIAdapter:
         )
         
         if not hwnd:
-            return Err(SDLError(code=-1, message="Failed to create window"))
+            return Err(EffyError(code=-1, message="Failed to create window"))
             
         if hasattr(windll.user32, "RegisterTouchWindow"):
             windll.user32.RegisterTouchWindow(hwnd, TWF_WANTPALM)
@@ -673,7 +673,7 @@ class WindowsGDIAdapter:
             return cast(int, windll.user32.DefWindowProcW(hwnd, msg, wparam, lparam))
         return 0
         
-    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, SDLError]:
+    def open_audio(self, spec: AudioSpec | None) -> Result[PlatformAudioHandle, EffyError]:
         """Open a native Windows audio hardware playback output (WASAPI) or fall back to dummy."""
         from Effy.audio.types import AudioSpec, AudioFormat
         
@@ -1047,13 +1047,13 @@ class WindowsGDIAdapter:
         except Exception:
             pass
 
-    def get_clipboard_data(self, mime_type: str) -> Result[bytes, SDLError]:
+    def get_clipboard_data(self, mime_type: str) -> Result[bytes, EffyError]:
         """Get binary data for a specific MIME type from the Windows clipboard using in-memory fallback."""
         if mime_type in self._clipboard_data:
             return Ok(self._clipboard_data[mime_type])
-        return Err(SDLError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
+        return Err(EffyError(code=-1, message=f"MIME type '{mime_type}' not found in clipboard"))
 
-    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, SDLError]:
+    def set_clipboard_data(self, mime_type: str, data: bytes) -> Result[None, EffyError]:
         """Set binary data for a specific MIME type in the Windows clipboard using in-memory fallback."""
         self._clipboard_data[mime_type] = data
         return Ok(None)
@@ -1154,7 +1154,7 @@ class WindowsGDIAdapter:
         from Effy.input.sensors import SensorState
         return SensorState(devices=frozenset())
 
-    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, SDLError]:
+    def open_haptic(self, device_id: int) -> Result[PlatformHapticHandle, EffyError]:
         """Open a haptic device."""
         from Effy.platform import PlatformHapticHandle
         if not hasattr(self, "_haptics_opened"):
@@ -1173,36 +1173,36 @@ class WindowsGDIAdapter:
 
     def play_rumble(
         self, handle: PlatformHapticHandle, strength: float, duration_ms: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Play a simple rumble effect."""
-        return Err(SDLError(code=-1, message="Rumble not supported on Windows GDI stub"))
+        return Err(EffyError(code=-1, message="Rumble not supported on Windows GDI stub"))
 
-    def stop_rumble(self, handle: PlatformHapticHandle) -> Result[None, SDLError]:
+    def stop_rumble(self, handle: PlatformHapticHandle) -> Result[None, EffyError]:
         """Stop rumble playback."""
-        return Err(SDLError(code=-1, message="Rumble not supported on Windows GDI stub"))
+        return Err(EffyError(code=-1, message="Rumble not supported on Windows GDI stub"))
 
     def upload_effect(
         self, handle: PlatformHapticHandle, effect: HapticEffect
-    ) -> Result[int, SDLError]:
+    ) -> Result[int, EffyError]:
         """Upload a custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
 
     def run_effect(
         self, handle: PlatformHapticHandle, effect_id: int, iterations: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Run an uploaded custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
 
     def stop_effect(
         self, handle: PlatformHapticHandle, effect_id: int
-    ) -> Result[None, SDLError]:
+    ) -> Result[None, EffyError]:
         """Stop playback of a custom haptic effect."""
-        return Err(SDLError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
+        return Err(EffyError(code=-1, message="Haptic custom effects not supported on Windows GDI stub"))
 
     def destroy_effect(self, handle: PlatformHapticHandle, effect_id: int) -> None:
         """Destroy an uploaded haptic effect."""
         pass
 
-    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, SDLError]:
+    def present_accelerated(self, handle: Any, commands: list[Any], width: int, height: int) -> Result[None, EffyError]:
         """Hardware-accelerated rendering stub. Windows GDI does not support accelerated presentation."""
-        return Err(SDLError(code=-1, message="Hardware acceleration not supported on this platform"))
+        return Err(EffyError(code=-1, message="Hardware acceleration not supported on this platform"))

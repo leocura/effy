@@ -145,21 +145,29 @@ def rasterize_draw_circle(
 
     while x >= y:
         px, py = cx + x, cy + y
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx + y, cy + x
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx - y, cy + x
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx - x, cy + y
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx - x, cy - y
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx - y, cy - x
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx + y, cy - x
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
         px, py = cx + x, cy - y
-        if 0 <= px < width and 0 <= py < height: data[py * pitch + px] = color_int
+        if 0 <= px < width and 0 <= py < height:
+            data[py * pitch + px] = color_int
 
         y += 1
         if p < 0:
@@ -178,9 +186,11 @@ def rasterize_fill_circle(
 
     cx, cy = center.x, center.y
     min_y = cy - radius
-    if min_y < 0: min_y = 0
+    if min_y < 0:
+        min_y = 0
     max_y = cy + radius
-    if max_y >= height: max_y = height - 1
+    if max_y >= height:
+        max_y = height - 1
     
     color_int = get_color_int(color)
     r2 = radius * radius
@@ -191,9 +201,11 @@ def rasterize_fill_circle(
         dx = int(math.sqrt(r2 - dy * dy))
         
         x1 = cx - dx
-        if x1 < 0: x1 = 0
+        if x1 < 0:
+            x1 = 0
         x2 = cx + dx
-        if x2 >= width: x2 = width - 1
+        if x2 >= width:
+            x2 = width - 1
             
         if x1 <= x2:
             off = row_offset + x1

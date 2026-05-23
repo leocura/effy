@@ -96,7 +96,7 @@ def test_rich_mime_data_get_set() -> None:
         mime = "application/json"
         payload = b'{"hello": "world"}'
 
-        # Retrieve a non-existent MIME format should return Err carrying SDLError
+        # Retrieve a non-existent MIME format should return Err carrying EffyError
         get_fail_eff = get_clipboard_data(mime)
         assert isinstance(get_fail_eff, Effect)
         fail_res = get_fail_eff.run()

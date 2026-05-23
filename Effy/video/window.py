@@ -2,7 +2,7 @@ from __future__ import annotations
 from enum import IntFlag
 from dataclasses import dataclass
 from Effy.types import WindowID, Effect, Result, Ok, Err, WindowParams
-from Effy.error import SDLError
+from Effy.error import EffyError
 from Effy._internal.registry import get_platform_adapter, register_window, unregister_window, get_window_handle, next_window_id
 
 class WindowFlags(IntFlag):
@@ -57,8 +57,8 @@ def create_window(
     x: int, y: int,
     w: int, h: int,
     flags: WindowFlags,
-) -> Effect[Result[Window, SDLError]]:
-    """Create a new window and return an Effect that produces the Window or SDLError.
+) -> Effect[Result[Window, EffyError]]:
+    """Create a new window and return an Effect that produces the Window or EffyError.
 
     Args:
         title: The title text for the window.
@@ -69,13 +69,13 @@ def create_window(
         flags: A combination of WindowFlags specifying attributes.
 
     Returns:
-        An Effect wrapping a Result containing the created Window or an SDLError.
+        An Effect wrapping a Result containing the created Window or an EffyError.
     """
-    def _run() -> Result[Window, SDLError]:
+    def _run() -> Result[Window, EffyError]:
         """Thunk that creates the window via the platform adapter."""
         adapter = get_platform_adapter()
         if not adapter:
-            return Err(SDLError(code=-1, message="SDL not initialized"))
+            return Err(EffyError(code=-1, message="SDL not initialized"))
 
         params = WindowParams(title=title, x=x, y=y, w=w, h=h, flags=flags)
         res = adapter.create_window(params)

@@ -2,8 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
-class SDLError:
-    """An immutable error container representing an SDL subsystem failure.
+class EffyError:
+    """An immutable error container representing an Effy subsystem failure.
 
     Attributes:
         code: The error code returned by the underlying subsystem.
@@ -14,4 +14,9 @@ class SDLError:
 
     def __str__(self) -> str:
         """Return a formatted string representation of the error."""
-        return f"SDLError({self.code}): {self.message}"
+        return f"EffyError({self.code}): {self.message}"
+
+
+# Backward-compatible alias
+SDLError = EffyError
+

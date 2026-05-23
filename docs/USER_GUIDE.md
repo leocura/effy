@@ -41,14 +41,14 @@ A `Result` represents either a success (`Ok[T]`) or a failure (`Err[E]`). It is 
 
 ```python
 from Effy._internal.result import Ok, Err, Result
-from Effy.error import SDLError
+from Effy.error import EffyError
 
-def find_element(items: list[str], target: str) -> Result[int, SDLError]:
+def find_element(items: list[str], target: str) -> Result[int, EffyError]:
     try:
         idx = items.index(target)
         return Ok(idx)
     except ValueError:
-        return Err(SDLError(code=404, message=f"'{target}' not found"))
+        return Err(EffyError(code=404, message=f"'{target}' not found"))
 ```
 
 #### Chaining and Monadic Composition
@@ -61,7 +61,7 @@ You can map or chain results using standard monadic methods:
 result = (
     find_element(["apple", "banana", "cherry"], "banana")
     .map(lambda idx: idx * 10)
-    .and_then(lambda val: Ok(f"Value: {val}") if val > 5 else Err(SDLError(-1, "Too small")))
+    .and_then(lambda val: Ok(f"Value: {val}") if val > 5 else Err(EffyError(-1, "Too small")))
 )
 
 match result:

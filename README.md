@@ -1,5 +1,8 @@
 # Effy
 
+[![CI](https://github.com/leocura/effy/actions/workflows/ci.yml/badge.svg)](https://github.com/leocura/effy/actions/workflows/ci.yml)
+[![Release](https://github.com/leocura/effy/actions/workflows/release.yml/badge.svg)](https://github.com/leocura/effy/actions/workflows/release.yml)
+
 A pure-Python 2D graphics, audio, and windowing library inspired by SDL2. 
 
 Effy is built with minimal external dependencies. It talks directly to your operating system's windowing subsystem via standard library `ctypes`.
@@ -10,7 +13,7 @@ We respect Pygame, but Effy is designed to be a complete, modern alternative bui
 
 - **Windowing & OS Events:** Creation, styling, and management of OS windows. Events like mouse, keyboard, touch, and gamepad inputs are processed through a clean, immutable queue.
 - **2D Software Rasterizer:** Out-of-the-box rendering functions for rectangles, circles, lines, and filled triangles directly in memory or onto an active window.
-- **Direct Pixel Buffers:** Fast off-screen surface manipulation using standard `array` structures with nearest-neighbor and bilinear filtering.
+- **Direct Pixel Buffers:** Fast off-screen surface manipulation using standard `array` structures with nearest-neighbor, bilinear filtering, and highly optimized fast-path integer scaling.
 - **Custom Shader Pipelines:** Build visual effects with functional Signed Distance Field (SDF) shaders running directly in Python.
 - **Audio Mixing & Resampling:** Multi-channel mixing, playback, and automatic sample format conversion. Supports ALSA, PulseAudio, WASAPI, and standard core audio loops.
 
@@ -116,21 +119,14 @@ Because Effy runs on pure Python optimized for **PyPy**, it avoids standard inte
 
 ### The Benchmarks
 
-Here is a performance comparison of average execution times (in milliseconds) for rendering, audio, and physics operations under **Effy (PyPy 3.11)** vs. **Pygame (CPython 3.13)**:
+Here is a performance comparison of average execution frames-per-second (FPS) and low frame times for core engine loops under **Effy (PyPy 3.11)** vs. **Pygame (CPython 3.14)**:
 
-| Operation | Effy (PyPy) | Pygame (CPython) | Speedup / Slowdown |
-| :--- | :--- | :--- | :--- |
-| **Audio Specification Conversion** | **0.27 ms** | 212.69 ms | **~780x faster** (Effy JIT) |
-| **Multi-Stream Audio Mix** | **1.10 ms** | 98.53 ms | **~89x faster** (Effy JIT) |
-| **SDF CSG Shader (500x500)** | **73.24 ms** | 13,455.13 ms | **~180x faster** (Effy JIT) |
-| **2000 Particle Physics Simulation** | **5.21 ms** | 14.09 ms | **~2.7x faster** (Effy JIT) |
-| **Draw Diagonal Line** | 13.52 ms | 16.10 ms | ~1.2x faster |
-| **Small Rectangle Fills** | 2.73 ms | 9.50 ms | ~3.4x faster |
-| **Large Rectangle Fills** | 2.83 ms | 2.08 ms | ~0.73x slower |
-| **Draw Rectangle Outline** | 29.65 ms | 7.51 ms | ~0.25x slower |
-| **Fill Triangles** | 249.82 ms | 61.06 ms | ~0.24x slower |
-| **Bilinear Blit Scale** | 75.16 ms | 9.06 ms | ~0.12x slower |
-| **Standard 1:1 Surface Blits** | 41.23 ms | 2.79 ms | ~0.07x slower |
+| Workload | Effy Avg FPS | Pygame Avg FPS | Speedup | Effy 1% Low | Pygame 1% Low | Effy 0.1% Low | Pygame 0.1% Low |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Pixel Buffer (1280x720)** | **509 FPS** | 1 FPS | **~510x faster** | 2.00ms | 1050.46ms | 2.00ms | 1050.46ms |
+| **Audio Mix (4096 Samples)** | **10125 FPS** | 442 FPS | **~22.9x faster** | 0.26ms | 3.03ms | 6.11ms | 3.91ms |
+| **Particle System (2000 Particles)** | 68 FPS | 101 FPS | ~0.67x slower | 25.32ms | 12.29ms | 28.91ms | 13.99ms |
+| **Game Loop (1000 Sprites)** | 62 FPS | 321 FPS | ~0.19x slower | 24.17ms | 3.36ms | 25.52ms | 3.43ms |
 
 ### Realities and Strengths
 

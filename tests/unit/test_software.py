@@ -252,3 +252,102 @@ def test_blit_blended_clipping_and_edge_cases():
     result = blit_blended(src, Rect(-2, -2, 10, 10), dst, Rect(3, 3, 5, 5))
     # It shouldn't crash, and outside should remain untouched
     assert result.get_pixel(0, 0) == Color(0, 255, 0, 255)
+
+
+def test_blit_scaled_parity_1to1():
+    """Verify that a 1:1 scaling blit matches a standard 1:1 blit perfectly."""
+    src = PixelBuffer.create(2, 2)
+    src = src.write_pixel(0, 0, Color(255, 0, 0, 255))
+    src = src.write_pixel(1, 0, Color(0, 255, 0, 255))
+    src = src.write_pixel(0, 1, Color(0, 0, 255, 255))
+    src = src.write_pixel(1, 1, Color(255, 255, 255, 255))
+
+    dst1 = PixelBuffer.create(2, 2)
+    dst2 = PixelBuffer.create(2, 2)
+
+    res_blit = blit(src, None, dst1, None)
+    res_scaled = blit_scaled(src, None, dst2, Rect(0, 0, 2, 2))
+
+    for y in range(2):
+        for x in range(2):
+            assert res_blit.get_pixel(x, y) == res_scaled.get_pixel(x, y)
+
+
+def test_blit_scaled_parity_integer_3x():
+    """Verify that the fast path 3x integer scaling produces correct pixel replication."""
+    src = PixelBuffer.create(2, 2)
+    c00 = Color(255, 0, 0, 255)
+    c10 = Color(0, 255, 0, 255)
+    c01 = Color(0, 0, 255, 255)
+    c11 = Color(255, 255, 255, 255)
+
+    src = src.write_pixel(0, 0, c00)
+    src = src.write_pixel(1, 0, c10)
+    src = src.write_pixel(0, 1, c01)
+    src = src.write_pixel(1, 1, c11)
+
+    dst = PixelBuffer.create(6, 6)
+    result = blit_scaled(src, None, dst, Rect(0, 0, 6, 6))
+
+    for y in range(6):
+        for x in range(6):
+            expected_color = (
+                c00 if (x < 3 and y < 3) else
+                c10 if (x >= 3 and y < 3) else
+                c01 if (x < 3 and y >= 3) else
+                c11
+            )
+            assert result.get_pixel(x, y) == expected_color
+
+
+def test_blit_scaled_parity_fractional_2_5x():
+    """Verify that a 2.5x fractional scale falls back correctly and maintains correctness."""
+    src = PixelBuffer.create(2, 2)
+    c00 = Color(255, 0, 0, 255)
+    c10 = Color(0, 255, 0, 255)
+    c01 = Color(0, 0, 255, 255)
+    c11 = Color(255, 255, 255, 255)
+
+    src = src.write_pixel(0, 0, c00)
+    src = src.write_pixel(1, 0, c10)
+    src = src.write_pixel(0, 1, c01)
+    src = src.write_pixel(1, 1, c11)
+
+    dst = PixelBuffer.create(5, 5)
+    result = blit_scaled(src, None, dst, Rect(0, 0, 5, 5))
+
+    for y in range(5):
+        for x in range(5):
+            src_x = (x * 2) // 5
+            src_y = (y * 2) // 5
+            expected_color = (
+                c00 if (src_x == 0 and src_y == 0) else
+                c10 if (src_x == 1 and src_y == 0) else
+                c01 if (src_x == 0 and src_y == 1) else
+                c11
+            )
+            assert result.get_pixel(x, y) == expected_color
+
+
+def test_blit_scaled_out_of_bounds_clipping():
+    """Verify that integer scaled blitting handles out-of-bounds clipping properly without crashing."""
+    src = PixelBuffer.create(2, 2)
+    c00 = Color(255, 0, 0, 255)
+    c10 = Color(0, 255, 0, 255)
+    c01 = Color(0, 0, 255, 255)
+    c11 = Color(255, 255, 255, 255)
+
+    src = src.write_pixel(0, 0, c00)
+    src = src.write_pixel(1, 0, c10)
+    src = src.write_pixel(0, 1, c01)
+    src = src.write_pixel(1, 1, c11)
+
+    dst = PixelBuffer.create(4, 4)
+    result = blit_scaled(src, None, dst, Rect(-2, -2, 4, 4))
+
+    for y in range(2):
+        for x in range(2):
+            assert result.get_pixel(x, y) == c11
+
+    assert result.get_pixel(2, 2) == Color(0, 0, 0, 0)
+

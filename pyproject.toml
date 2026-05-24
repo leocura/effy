@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "Effy"
 version = "0.1.0"
 authors = [
-    { name = "Effy Contributors" }
+    { name = "Leocura", email = "leonardodearaujoaugusto@gmail.com" }
 ]
 description = "A pure-Python 2D graphics, audio, and windowing library inspired by SDL2"
 readme = "README.md"
@@ -28,8 +28,23 @@ dev = [
     "mypy>=1.0",
     "ruff>=0.1",
     "hypothesis>=6.0",
+    "python-semantic-release>=9.0",
+    "build>=1.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["Effy*"]
+
+[tool.semantic_release]
+version_variables = []
+version_toml = ["pyproject.toml:project.version"]
+branch = "master"
+upload_to_pypi = false
+upload_to_release = true
+build_command = "python -m build"
+
+[tool.semantic_release.branches.master]
+match = "^(master|main)$"
+prerelease = true
+prerelease_token = "alpha"

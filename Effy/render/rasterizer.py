@@ -562,6 +562,37 @@ def rasterize_blit_blended(
         dst_row_start += dst_pitch
         src_row_start += src_pitch
 
+@pure
+def _fast_integer_scale(src_sliced: array.array[int], sw: int, sh: int, scale: int) -> array.array[int]:
+    """Upscale a contiguous sliced pixel array by a whole integer factor using predictable loops.
+
+    Args:
+        src_sliced: Contiguous pixel array of size sw * sh.
+        sw: Source width in pixels.
+        sh: Source height in pixels.
+        scale: Integer scale factor.
+
+    Returns:
+        A new contiguous upscaled array of size (sw * scale) * (sh * scale).
+    """
+    dw = sw * scale
+    dh = sh * scale
+    scaled_data = array.array('I', [0] * (dw * dh))
+
+    for row in range(sh):
+        for dst_row_offset in range(scale):
+            dst_row = row * scale + dst_row_offset
+            dst_row_start = dst_row * dw
+            src_row_start = row * sw
+            for col in range(sw):
+                pixel = src_sliced[src_row_start + col]
+                dst_col_start = col * scale
+                for dst_col_offset in range(scale):
+                    scaled_data[dst_row_start + dst_col_start + dst_col_offset] = pixel
+
+    return scaled_data
+
+
 def rasterize_blit_scaled(
     src_data: array.array[int] | memoryview, src_w: int, src_h: int, src_pitch: int, src_rect: Rect | None,
     dst_data: array.array[int], dst_w: int, dst_h: int, dst_pitch: int, dst_rect: Rect | None
@@ -595,6 +626,32 @@ def rasterize_blit_scaled(
         
     if dw <= 0 or dh <= 0 or sw <= 0 or sh <= 0:
         return
+
+    # Math & Fast Path Detection
+    scale_x = dw / sw
+    scale_y = dh / sh
+
+    if scale_x == scale_y and scale_x >= 1.0 and scale_x.is_integer():
+        scale = int(scale_x)
+
+        # Slice the texture's pixel buffer to extract only the src_rect data
+        src_sliced = array.array('I', [0] * (sw * sh))
+        for row in range(sh):
+            src_row_start = (sy + row) * src_pitch + sx
+            sliced_row_start = row * sw
+            for col in range(sw):
+                src_sliced[sliced_row_start + col] = src_data[src_row_start + col]
+
+        # Pre-allocate and populate the scaled buffer using predictable loops
+        scaled_data = _fast_integer_scale(src_sliced, sw, sh, scale)
+
+        # Safe 1:1 blit to screen/window handling any out-of-bounds clipping
+        rasterize_blit(
+            scaled_data, dw, dh, dw, None,
+            dst_data, dst_w, dst_h, dst_pitch, Rect(dx, dy, dw, dh)
+        )
+        return
+
 
     x_ratio = (sw << 16) // dw
     y_ratio = (sh << 16) // dh

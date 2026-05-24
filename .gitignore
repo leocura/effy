@@ -8,3 +8,5 @@ __pycache__/
 venv_*/
 env/
 AGENTS.md
+benchmarks/
+*.prof

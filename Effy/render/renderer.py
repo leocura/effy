@@ -122,17 +122,7 @@ def _dispatch_draw_curve(cmd: DrawCurveCmd, data: array.array[int], w: int, h: i
 
 
 def _dispatch_render_shader(cmd: RenderShaderCmd, data: array.array[int], w: int, h: int, pitch: int) -> None:
-    if cmd.gpu:
-        from Effy.render.gpu_driver import resolve_gpu_shader
-        from Effy.types import Ok
-        res = resolve_gpu_shader(cmd, w, h)
-        if isinstance(res, Ok):
-            gpu_data = res.value
-            target_w = cmd.dst_rect.w if cmd.dst_rect else w
-            target_h = cmd.dst_rect.h if cmd.dst_rect else h
-            
-            from Effy.render.rasterizer import rasterize_blit_blended
-            rasterize_blit_blended(gpu_data, target_w, target_h, target_w, None, data, w, h, pitch, cmd.dst_rect)
+    pass  # CPU rendering logic for shaders will go here in the future
 
 _DISPATCH_TABLE: dict[type[DrawCmd], Callable[[Any, array.array[int], int, int, int], None]] = {
     BlitCmd: _dispatch_blit,
@@ -331,7 +321,7 @@ def render_field(ctx: RenderContext, rect: Rect | None, field: Field) -> RenderC
 
 
 @pure
-def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None, dst_rect: Rect | None, shader: Any, gpu: bool = False) -> RenderContext:
+def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None, dst_rect: Rect | None, shader: Any) -> RenderContext:
     """Enqueue a pure Python AST shader execution command.
 
     Args:
@@ -340,18 +330,11 @@ def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None
         src_rect: The source rectangle of the texture.
         dst_rect: The screen destination rectangle.
         shader: The GPUProgram containing the transpiled AST shader.
-        gpu: If True, execute the shader natively via the WGPU backend compute node.
 
     Returns:
         A new RenderContext with RenderShaderCmd appended.
     """
-    if gpu:
-        warnings.warn(
-            "HERE BE DRAGONS: You are using `gpu=True`. This forces a massive VRAM-to-RAM sync/readback penalty "
-            "that will tank your FPS. Terrible ideas lie here.", 
-            UserWarning, stacklevel=2
-        )
-    cmd = RenderShaderCmd(shader=shader, src_buffer=tex.buffer if tex else None, dst_rect=dst_rect, gpu=gpu)
+    cmd = RenderShaderCmd(shader=shader, src_buffer=tex.buffer if tex else None, dst_rect=dst_rect)
     return _append_command(ctx, cmd)
 
 

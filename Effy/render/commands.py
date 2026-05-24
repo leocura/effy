@@ -198,12 +198,10 @@ class RenderShaderCmd:
         shader: The GPUProgram (transpiled python AST function).
         src_buffer: The input PixelBuffer texture to sample from, if any.
         dst_rect: The output screen area to render into, or None for fullscreen.
-        gpu: If True, executes the shader natively via the WGPU backend.
     """
     shader: Any
     src_buffer: Any | None
     dst_rect: Rect | None
-    gpu: bool = False
 
 
 DrawCmd = Union[

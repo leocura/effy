@@ -20,7 +20,7 @@ classifiers = [
     "Topic :: Multimedia :: Graphics",
     "Topic :: Multimedia :: Sound/Audio",
 ]
-dependencies = ["wgpu"]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [

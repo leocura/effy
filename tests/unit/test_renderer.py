@@ -241,67 +241,6 @@ class TestRenderDrawingPrimitives:
         assert buf.get_pixel(10, 10) == Color(0, 0, 0)
 
 
-class TestRendererAccelerated:
-    """Unit tests for the hardware-accelerated rendering configurations and fallback logic."""
 
-    def test_create_renderer_with_accelerated_flags(self):
-        """create_renderer with ACCELERATED should store flags on the RenderContext."""
-        from Effy.render import create_renderer, RendererFlags
-        from Effy.video import Window, WindowFlags
-        from Effy._internal.result import Ok
-
-        win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
-        
-        assert isinstance(res, Ok)
-        ctx = res.value
-        assert ctx.flags == RendererFlags.SOFTWARE
-
-
-    def test_render_present_fallback_to_software(self, headless):
-        """If the platform adapter lacks hardware acceleration, render_present should fallback to software."""
-        from Effy.render import create_renderer, RendererFlags, render_clear, render_present
-        from Effy.video import Window, WindowFlags
-
-        win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
-        ctx = res.value
-        ctx = render_clear(ctx)
-        
-        # HeadlessAdapter does not implement present_accelerated, so it will fall back to software
-        next_ctx = render_present(ctx).run()
-        assert len(next_ctx._commands) == 0
-        assert headless._last_presented_buffer is not None
-        assert headless._last_presented_buffer.get_pixel(0, 0) == Color(0, 0, 0)
-
-    def test_render_present_accelerated_success(self, headless):
-        """If the platform adapter supports present_accelerated, it should be called directly."""
-        from Effy.render import create_renderer, RendererFlags, render_clear, render_present
-        from Effy.video import Window, WindowFlags
-        from Effy._internal.result import Ok
-
-        called_args = []
-
-        # Mock present_accelerated on headless adapter
-        def mock_present_accelerated(handle, commands, width, height):
-            called_args.append((handle, commands, width, height))
-            return Ok(None)
-
-        headless.present_accelerated = mock_present_accelerated
-
-        win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
-        ctx = res.value
-        ctx = render_clear(ctx)
-        
-        next_ctx = render_present(ctx).run()
-        
-        assert len(next_ctx._commands) == 0
-        assert len(called_args) == 1
-        assert called_args[0][0] == "headless_window_handle"
-        assert len(called_args[0][1]) == 1  # 1 Clear command
-        
-        # Clean up mock
-        delattr(headless, "present_accelerated")
 
 

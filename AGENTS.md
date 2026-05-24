@@ -16,4 +16,4 @@
 ## 3. General Rules
 - Ensure code readability and maintainability. Do not over-comment inline code; instead, let the functional structure speak for itself.
 - All classes and functions **must** have descriptive docstrings.
-- Stick to the Minimal External Dependencies rule. Rely entirely on standard libraries (`ctypes`, `array`, `struct`, etc.) and `wgpu`.
+- Stick to the Minimal External Dependencies rule. Rely entirely on standard libraries (`ctypes`, `array`, `struct`, etc.).

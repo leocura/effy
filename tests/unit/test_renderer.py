@@ -251,11 +251,11 @@ class TestRendererAccelerated:
         from Effy._internal.result import Ok
 
         win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.ACCELERATED).run()
+        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
         
         assert isinstance(res, Ok)
         ctx = res.value
-        assert ctx.flags == RendererFlags.ACCELERATED
+        assert ctx.flags == RendererFlags.SOFTWARE
 
 
     def test_render_present_fallback_to_software(self, headless):
@@ -264,7 +264,7 @@ class TestRendererAccelerated:
         from Effy.video import Window, WindowFlags
 
         win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.ACCELERATED).run()
+        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
         ctx = res.value
         ctx = render_clear(ctx)
         
@@ -290,7 +290,7 @@ class TestRendererAccelerated:
         headless.present_accelerated = mock_present_accelerated
 
         win = Window(id=WINDOW_ID, title="Test", x=0, y=0, w=100, h=100, flags=WindowFlags.SHOWN)
-        res = create_renderer(win, flags=RendererFlags.ACCELERATED).run()
+        res = create_renderer(win, flags=RendererFlags.SOFTWARE).run()
         ctx = res.value
         ctx = render_clear(ctx)
         

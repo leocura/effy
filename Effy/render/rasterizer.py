@@ -14,20 +14,7 @@ Field = Callable[[int, int], float]
 _color_int_cache: dict[Color, int] = {}
 IS_LITTLE_ENDIAN = sys.byteorder == "little"
 
-# Preallocated global lists for blit scaling and bilinear mapping optimization
-_scaled_x_mappings: list[int] = []
-_scaled_dst_rows: list[int] = []
-_scaled_src_rows: list[int] = []
 
-_bilinear_x1: list[int] = []
-_bilinear_x2: list[int] = []
-_bilinear_ifx: list[int] = []
-_bilinear_iinv_fx: list[int] = []
-_bilinear_dst_rows: list[int] = []
-_bilinear_y1_rows: list[int] = []
-_bilinear_y2_rows: list[int] = []
-_bilinear_ify: list[int] = []
-_bilinear_iinv_fy: list[int] = []
 
 def get_color_int(color: Color) -> int:
     """Translate a Color object into a platform-endian integer representation."""
@@ -593,8 +580,6 @@ def rasterize_blit_scaled(
         dst_pitch: The destination pitch (row stride) in pixels.
         dst_rect: The destination bounding box to scale to, or None for the entire destination.
     """
-    global _scaled_x_mappings, _scaled_dst_rows, _scaled_src_rows
-
     if src_rect is None:
         sx, sy, sw, sh = 0, 0, src_w, src_h
     else:
@@ -608,35 +593,23 @@ def rasterize_blit_scaled(
     if sw == dw and sh == dh:
         return rasterize_blit(src_data, src_w, src_h, src_pitch, src_rect, dst_data, dst_w, dst_h, dst_pitch, dst_rect)
         
-    if dw <= 0 or dh <= 0:
+    if dw <= 0 or dh <= 0 or sw <= 0 or sh <= 0:
         return
 
-    if (sw > 0 and sh > 0 and
-        sx >= 0 and sy >= 0 and sx + sw <= src_w and sy + sh <= src_h and
+    x_ratio = (sw << 16) // dw
+    y_ratio = (sh << 16) // dh
+
+    if (sx >= 0 and sy >= 0 and sx + sw <= src_w and sy + sh <= src_h and
         dx >= 0 and dy >= 0 and dx + dw <= dst_w and dy + dh <= dst_h):
         
-        if len(_scaled_x_mappings) < dw:
-            _scaled_x_mappings.extend([0] * (dw - len(_scaled_x_mappings)))
-        if len(_scaled_dst_rows) < dh:
-            diff = dh - len(_scaled_dst_rows)
-            _scaled_dst_rows.extend([0] * diff)
-            _scaled_src_rows.extend([0] * diff)
-
-        x_mappings = _scaled_x_mappings
-        dst_rows = _scaled_dst_rows
-        src_rows = _scaled_src_rows
-
-        for x in range(dw):
-            x_mappings[x] = sx + (x * sw) // dw
         for y in range(dh):
-            dst_rows[y] = (dy + y) * dst_pitch + dx
-            src_rows[y] = (sy + (y * sh) // dh) * src_pitch
-
-        for y in range(dh):
-            dst_off = dst_rows[y]
-            src_off = src_rows[y]
+            src_y = sy + ((y * y_ratio) >> 16)
+            src_off = src_y * src_pitch
+            dst_off = (dy + y) * dst_pitch + dx
+            
             for x in range(dw):
-                dst_data[dst_off + x] = src_data[src_off + x_mappings[x]]
+                src_x = sx + ((x * x_ratio) >> 16)
+                dst_data[dst_off + x] = src_data[src_off + src_x]
         return
         
     for dst_y in range(dh):
@@ -644,7 +617,7 @@ def rasterize_blit_scaled(
         if py < 0 or py >= dst_h:
             continue
             
-        src_y = sy + (dst_y * sh) // dh
+        src_y = sy + ((dst_y * y_ratio) >> 16)
         dst_offset = py * dst_pitch
         src_offset = src_y * src_pitch
         
@@ -653,7 +626,7 @@ def rasterize_blit_scaled(
             if px < 0 or px >= dst_w:
                 continue
                 
-            src_x = sx + (dst_x * sw) // dw
+            src_x = sx + ((dst_x * x_ratio) >> 16)
             dst_data[dst_offset + px] = src_data[src_offset + src_x]
 
 def rasterize_blit_bilinear(
@@ -674,9 +647,6 @@ def rasterize_blit_bilinear(
         dst_pitch: The destination pitch (row stride) in pixels.
         dst_rect: The destination bounding box to scale to, or None for the entire destination.
     """
-    global _bilinear_x1, _bilinear_x2, _bilinear_ifx, _bilinear_iinv_fx
-    global _bilinear_dst_rows, _bilinear_y1_rows, _bilinear_y2_rows, _bilinear_ify, _bilinear_iinv_fy
-
     if src_rect is None:
         sx, sy, sw, sh = 0, 0, src_w, src_h
     else:
@@ -692,72 +662,32 @@ def rasterize_blit_bilinear(
 
     if (sx >= 0 and sy >= 0 and sx + sw <= src_w and sy + sh <= src_h and
         dx >= 0 and dy >= 0 and dx + dw <= dst_w and dy + dh <= dst_h):
-        
-        if len(_bilinear_x1) < dw:
-            diff = dw - len(_bilinear_x1)
-            _bilinear_x1.extend([0] * diff)
-            _bilinear_x2.extend([0] * diff)
-            _bilinear_ifx.extend([0] * diff)
-            _bilinear_iinv_fx.extend([0] * diff)
 
-        if len(_bilinear_dst_rows) < dh:
-            diff = dh - len(_bilinear_dst_rows)
-            _bilinear_dst_rows.extend([0] * diff)
-            _bilinear_y1_rows.extend([0] * diff)
-            _bilinear_y2_rows.extend([0] * diff)
-            _bilinear_ify.extend([0] * diff)
-            _bilinear_iinv_fy.extend([0] * diff)
-
-        x1_arr, x2_arr = _bilinear_x1, _bilinear_x2
-        ifx_arr, iinv_fx_arr = _bilinear_ifx, _bilinear_iinv_fx
-        dst_rows = _bilinear_dst_rows
-        y1_rows, y2_rows = _bilinear_y1_rows, _bilinear_y2_rows
-        ify_arr, iinv_fy_arr = _bilinear_ify, _bilinear_iinv_fy
-
-        scale_x = (sw - 1) / dw if dw > 1 else 0
-        scale_y = (sh - 1) / dh if dh > 1 else 0
-
-        for dst_x in range(dw):
-            src_x = dst_x * scale_x
-            x1 = int(src_x)
-            x2 = x1 + 1 if x1 < sw - 1 else x1
-            fx = src_x - x1
-            ifx_arr[dst_x] = int(fx * 256)
-            iinv_fx_arr[dst_x] = 256 - ifx_arr[dst_x]
-            x1_arr[dst_x] = sx + x1
-            x2_arr[dst_x] = sx + x2
+        x_ratio = ((sw - 1) << 16) // dw if dw > 1 else 0
+        y_ratio = ((sh - 1) << 16) // dh if dh > 1 else 0
 
         for dst_y in range(dh):
-            src_y = dst_y * scale_y
-            y1 = int(src_y)
+            src_y_fixed = dst_y * y_ratio
+            y1 = src_y_fixed >> 16
             y2 = y1 + 1 if y1 < sh - 1 else y1
-            fy = src_y - y1
-            ify = int(fy * 256)
+            ify = (src_y_fixed & 0xFFFF) >> 8
             iinv_fy = 256 - ify
-            
-            ify_arr[dst_y] = ify
-            iinv_fy_arr[dst_y] = iinv_fy
-            dst_rows[dst_y] = (dy + dst_y) * dst_pitch + dx
-            y1_rows[dst_y] = (sy + y1) * src_pitch
-            y2_rows[dst_y] = (sy + y2) * src_pitch
 
-        for dst_y in range(dh):
-            dst_off = dst_rows[dst_y]
-            y1_off = y1_rows[dst_y]
-            y2_off = y2_rows[dst_y]
-            ify = ify_arr[dst_y]
-            iinv_fy = iinv_fy_arr[dst_y]
+            dst_off = (dy + dst_y) * dst_pitch + dx
+            y1_off = (sy + y1) * src_pitch
+            y2_off = (sy + y2) * src_pitch
 
             for dst_x in range(dw):
-                x1 = x1_arr[dst_x]
-                x2 = x2_arr[dst_x]
-                ifx = ifx_arr[dst_x]
-                iinv_fx = iinv_fx_arr[dst_x]
+                src_x_fixed = dst_x * x_ratio
+                x1 = src_x_fixed >> 16
+                x2 = x1 + 1 if x1 < sw - 1 else x1
+                ifx = (src_x_fixed & 0xFFFF) >> 8
+                iinv_fx = 256 - ifx
 
-                c00 = src_data[y1_off + x1]
-                c10 = src_data[y1_off + x2]
-                c01 = src_data[y2_off + x1]
-                c11 = src_data[y2_off + x2]
+                c00 = src_data[y1_off + sx + x1]
+                c10 = src_data[y1_off + sx + x2]
+                c01 = src_data[y2_off + sx + x1]
+                c11 = src_data[y2_off + sx + x2]
 
                 r00, g00, b00, a00 = c00 & 0xFF, (c00 >> 8) & 0xFF, (c00 >> 16) & 0xFF, (c00 >> 24) & 0xFF
                 r10, g10, b10, a10 = c10 & 0xFF, (c10 >> 8) & 0xFF, (c10 >> 16) & 0xFF, (c10 >> 24) & 0xFF

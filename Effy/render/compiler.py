@@ -179,6 +179,21 @@ def compile_pipeline(device: Any, shader: GPUProgram) -> tuple[Any, Any]:
     """
     import wgpu
     wgsl_source = f"""
+    struct RectUniforms {{
+        dst_x: f32,
+        dst_y: f32,
+        dst_w: f32,
+        dst_h: f32,
+        src_x: f32,
+        src_y: f32,
+        src_w: f32,
+        src_h: f32,
+        screen_w: f32,
+        screen_h: f32,
+        pad1: f32,
+        pad2: f32,
+    }};
+
     struct VertexInput {{
         @builtin(vertex_index) vertex_index : u32,
     }};
@@ -187,13 +202,36 @@ def compile_pipeline(device: Any, shader: GPUProgram) -> tuple[Any, Any]:
         @location(0) uv : vec2<f32>,
     }};
 
+    @group(0) @binding(2) var<uniform> rect_data: RectUniforms;
+
     @vertex
     fn vs_main(in: VertexInput) -> VertexOutput {{
         var out: VertexOutput;
-        let u = f32((in.vertex_index << 1u) & 2u);
-        let v = f32(in.vertex_index & 2u);
-        out.uv = vec2<f32>(u, v);
-        out.position = vec4<f32>(u * 2.0 - 1.0, 1.0 - v * 2.0, 0.0, 1.0);
+        var quad_pos = array<vec2<f32>, 6>(
+            vec2<f32>(0.0, 0.0),
+            vec2<f32>(1.0, 0.0),
+            vec2<f32>(0.0, 1.0),
+            vec2<f32>(0.0, 1.0),
+            vec2<f32>(1.0, 0.0),
+            vec2<f32>(1.0, 1.0)
+        );
+        let uv = quad_pos[in.vertex_index];
+        
+        // Map to dst_rect
+        let screen_x = rect_data.dst_x + uv.x * rect_data.dst_w;
+        let screen_y = rect_data.dst_y + uv.y * rect_data.dst_h;
+        
+        // Map to NDC [-1, 1]
+        let ndc_x = (screen_x / max(1.0, rect_data.screen_w)) * 2.0 - 1.0;
+        let ndc_y = 1.0 - (screen_y / max(1.0, rect_data.screen_h)) * 2.0;
+        
+        out.position = vec4<f32>(ndc_x, ndc_y, 0.0, 1.0);
+        
+        // Map UVs to src_rect
+        out.uv = vec2<f32>(
+            rect_data.src_x + uv.x * rect_data.src_w,
+            rect_data.src_y + uv.y * rect_data.src_h
+        );
         return out;
     }}
 
@@ -221,6 +259,14 @@ def compile_pipeline(device: Any, shader: GPUProgram) -> tuple[Any, Any]:
                 "binding": 1,
                 "visibility": wgpu.ShaderStage.FRAGMENT,
                 "sampler": {"type": wgpu.SamplerBindingType.filtering},
+            },
+            {
+                "binding": 2,
+                "visibility": wgpu.ShaderStage.VERTEX,
+                "buffer": {
+                    "type": wgpu.BufferBindingType.uniform,
+                    "min_binding_size": 48,
+                },
             },
         ]
     )

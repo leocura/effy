@@ -12,6 +12,7 @@ import array
 from dataclasses import dataclass, field
 from enum import IntFlag
 from typing import Any, Callable
+import warnings
 from Effy.types import WindowID, Effect, Result, Ok, Err, Color
 from Effy.video.surface import PixelBuffer
 from Effy.video.window import Window
@@ -35,7 +36,6 @@ from Effy.video.font import BitmapFont
 class RendererFlags(IntFlag):
     """Flags specifying hardware or software renderer features."""
     SOFTWARE = 0x00000001
-    ACCELERATED = 0x00000002
     PRESENTVSYNC = 0x00000004
     TARGETTEXTURE = 0x00000008
 
@@ -121,6 +121,19 @@ def _dispatch_draw_curve(cmd: DrawCurveCmd, data: array.array[int], w: int, h: i
     rasterizer.rasterize_draw_curve(data, w, h, pitch, cmd.points, cmd.color)
 
 
+def _dispatch_render_shader(cmd: RenderShaderCmd, data: array.array[int], w: int, h: int, pitch: int) -> None:
+    if cmd.gpu:
+        from Effy.render.gpu_driver import resolve_gpu_shader
+        from Effy.types import Ok
+        res = resolve_gpu_shader(cmd, w, h)
+        if isinstance(res, Ok):
+            gpu_data = res.value
+            target_w = cmd.dst_rect.w if cmd.dst_rect else w
+            target_h = cmd.dst_rect.h if cmd.dst_rect else h
+            
+            from Effy.render.rasterizer import rasterize_blit_blended
+            rasterize_blit_blended(gpu_data, target_w, target_h, target_w, None, data, w, h, pitch, cmd.dst_rect)
+
 _DISPATCH_TABLE: dict[type[DrawCmd], Callable[[Any, array.array[int], int, int, int], None]] = {
     BlitCmd: _dispatch_blit,
     BlitBlendedCmd: _dispatch_blit_blended,
@@ -135,6 +148,7 @@ _DISPATCH_TABLE: dict[type[DrawCmd], Callable[[Any, array.array[int], int, int, 
     FillPolygonCmd: _dispatch_fill_polygon,
     DrawCurveCmd: _dispatch_draw_curve,
     RenderFieldCmd: _dispatch_render_field,
+    RenderShaderCmd: _dispatch_render_shader,
 }
 
 
@@ -317,7 +331,7 @@ def render_field(ctx: RenderContext, rect: Rect | None, field: Field) -> RenderC
 
 
 @pure
-def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None, dst_rect: Rect | None, shader: Any) -> RenderContext:
+def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None, dst_rect: Rect | None, shader: Any, gpu: bool = False) -> RenderContext:
     """Enqueue a pure Python AST shader execution command.
 
     Args:
@@ -326,11 +340,18 @@ def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None
         src_rect: The source rectangle of the texture.
         dst_rect: The screen destination rectangle.
         shader: The GPUProgram containing the transpiled AST shader.
+        gpu: If True, execute the shader natively via the WGPU backend compute node.
 
     Returns:
         A new RenderContext with RenderShaderCmd appended.
     """
-    cmd = RenderShaderCmd(shader=shader, src_buffer=tex.buffer if tex else None, dst_rect=dst_rect)
+    if gpu:
+        warnings.warn(
+            "HERE BE DRAGONS: You are using `gpu=True`. This forces a massive VRAM-to-RAM sync/readback penalty "
+            "that will tank your FPS. Terrible ideas lie here.", 
+            UserWarning, stacklevel=2
+        )
+    cmd = RenderShaderCmd(shader=shader, src_buffer=tex.buffer if tex else None, dst_rect=dst_rect, gpu=gpu)
     return _append_command(ctx, cmd)
 
 
@@ -352,39 +373,19 @@ def render_present(ctx: RenderContext) -> Effect[RenderContext]:
         adapter = get_platform_adapter()
         handle = get_window_handle(ctx.window_id)
 
-        success = False
-        data = None
-
-        if adapter and handle and (ctx.flags & RendererFlags.ACCELERATED):
-            from Effy.render.gpu_driver import resolve_accelerated_pass
-            res = resolve_accelerated_pass(ctx._commands, ctx.width, ctx.height)
-            if isinstance(res, Ok):
-                data = res.value
-                success = True
-
-        if not success:
-            from Effy._internal.pool import pixel_buffer_pool
-            data = pixel_buffer_pool.get(ctx.width, ctx.height, zero=False)
-            
-            buffer = PixelBuffer(
-                width=ctx.width,
-                height=ctx.height,
-                pitch=ctx.width,
-                _data_cache=[data],
-                _commands_list=[],
-                _is_transient=True
-            )
-            
-            _resolve_commands(buffer, data, ctx._commands)
-        else:
-            buffer = PixelBuffer(
-                width=ctx.width,
-                height=ctx.height,
-                pitch=ctx.width,
-                _data_cache=[data],
-                _commands_list=[],
-                _is_transient=True
-            )
+        from Effy._internal.pool import pixel_buffer_pool
+        data = pixel_buffer_pool.get(ctx.width, ctx.height, zero=False)
+        
+        buffer = PixelBuffer(
+            width=ctx.width,
+            height=ctx.height,
+            pitch=ctx.width,
+            _data_cache=[data],
+            _commands_list=[],
+            _is_transient=True
+        )
+        
+        _resolve_commands(buffer, data, ctx._commands)
 
         if adapter and handle:
             adapter.flip_buffer(handle, buffer)

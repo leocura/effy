@@ -1,6 +1,6 @@
 """Effy: A pure-Python 2D graphics, audio, and windowing library inspired by SDL2 and Pygame.
 
-This library is designed from scratch with a functional core and zero external binary dependencies.
+This library is designed from scratch with a functional core and minimal external dependencies.
 """
 from __future__ import annotations
 import sys

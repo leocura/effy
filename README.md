@@ -2,7 +2,7 @@
 
 A pure-Python 2D graphics, audio, and windowing library inspired by SDL2. 
 
-Effy is built with no external C extensions or binary dependencies. It talks directly to your operating system's windowing and graphics subsystems (X11 on Linux, Win32 on Windows, and Quartz on macOS) via standard library `ctypes`.
+Effy is built with minimal external dependencies. It talks directly to your operating system's windowing subsystem via standard library `ctypes`, and utilizes `wgpu` for hardware-accelerated rendering.
 
 We respect Pygame, but Effy is designed to be a complete, modern alternative built on clean functional principles.
 
@@ -20,8 +20,8 @@ We respect Pygame, but Effy is designed to be a complete, modern alternative bui
   PyPy3 is a requirement. Effy's pure-Python rendering and audio mixing pipelines are deeply optimized specifically for PyPy's JIT compiler to deliver real-time performance.
 - **CPython 3.10+ (Development Only)**
   CPython is supported only for running static analysis, type-checkers (`mypy`), or linters (`ruff`). Running Effy applications on CPython will emit a performance warning, as CPython's interpreter is not fast enough for real-time software rasterization.
-- **Zero External Dependencies**
-  No pip packages are required to run Effy. It relies strictly on standard libraries (`ctypes`, `array`, `struct`, etc.). The only dependencies are for dev tools (`pytest`, `mypy`, `ruff`).
+- **Minimal External Dependencies**
+  Effy relies heavily on standard libraries (`ctypes`, `array`, `struct`, etc.) and uses `wgpu` for hardware-accelerated rendering. The other dependencies are for dev tools (`pytest`, `mypy`, `ruff`).
 
 ---
 

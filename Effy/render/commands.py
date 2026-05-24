@@ -181,29 +181,35 @@ class RenderFieldCmd:
     """Command to render a signed distance field.
 
     Attributes:
-        rect: The bounding Rect to limit rendering, or None for the full surface.
-        field: The SDF function to render.
-        color: The fill Color.
+        rect: The Rect bounding the region to render, or None for the full surface.
+        field: The Field function evaluating the signed distance at (x, y).
+        color: The draw Color used for the field surface.
     """
     rect: Rect | None
     field: Field
     color: Color
 
 
+@dataclass(frozen=True, slots=True)
+class RenderShaderCmd:
+    """Command to render a pure Python AST shader on the GPU pipeline.
+
+    Attributes:
+        shader: The GPUProgram (transpiled python AST function).
+        src_buffer: The input PixelBuffer texture to sample from, if any.
+        dst_rect: The output screen area to render into, or None for fullscreen.
+    """
+    shader: Any
+    src_buffer: Any | None
+    dst_rect: Rect | None
+
+
 DrawCmd = Union[
-    FillRectCmd,
-    DrawRectCmd,
-    DrawLineCmd,
-    DrawCircleCmd,
-    FillCircleCmd,
-    FillTriangleCmd,
-    FillPolygonCmd,
-    DrawCurveCmd,
-    BlitCmd,
-    BlitBlendedCmd,
-    BlitScaledCmd,
-    BlitBilinearCmd,
-    RenderFieldCmd,
+    FillRectCmd, DrawRectCmd, DrawLineCmd, 
+    DrawCircleCmd, FillCircleCmd, FillTriangleCmd,
+    FillPolygonCmd, DrawCurveCmd,
+    BlitCmd, BlitBlendedCmd, BlitScaledCmd, BlitBilinearCmd,
+    RenderFieldCmd, RenderShaderCmd
 ]
 
 __all__ = [
@@ -222,4 +228,5 @@ __all__ = [
     "BlitBilinearCmd",
     "Field",
     "RenderFieldCmd",
+    "RenderShaderCmd",
 ]

@@ -112,9 +112,9 @@ window_result = setup_pipeline.run()
 
 ---
 
-## 3. 2D Software Render Pipeline
+## 3. 2D Render Pipelines
 
-Effy features two rendering paths. 
+Effy features three rendering paths. 
 
 ### 3.1 Deferred `RenderContext` Pipeline (Window rendering)
 Use `RenderContext` when presenting graphics directly to an OS window. To avoid garbage collection (GC) churn and memory allocations, Effy uses **deferred command accumulation**:
@@ -164,6 +164,47 @@ surface = PixelBuffer.create(256, 256)
 # Chain mutations safely.Backing store clones once, then mutates in-place!
 surface = fill_circle(surface, Point(128, 128), 50, Color(0, 255, 0))
 surface = draw_line(surface, Point(0, 0), Point(255, 255), Color(255, 255, 255))
+```
+
+### 3.3 Hardware Accelerated GPU Pipeline (WGPU)
+Use `RendererFlags.ACCELERATED` to opt-in to the pure functional hardware-accelerated WGPU backend. This pipeline allows you to compile and bind pure Python ASTs into hardware shaders, bypassing the software rasterizer entirely while maintaining functional purity.
+
+#### Building GPU Shaders with AST
+Effy includes a built-in AST transpiler (`@gpu_shader`) that compiles pure Python functions directly into WGSL bytecode. The shader function must accept `u` and `v` texture coordinates (as floats) and return a `Color` (mapped to WGSL's `vec4<f32>`).
+
+**Shader Capabilities:**
+- **Types:** `float`, `int`, and `Color` (vec4).
+- **Math:** Basic arithmetic (`+`, `-`, `*`, `/`) and standard functions (`math.sin`, `math.cos`, `math.sqrt`, `math.abs`, `math.min`, `math.max`).
+- **Texture Sampling:** `sample_texture(tex, vec2)` is natively supported.
+- **Variables:** Standard assignments compile to immutable `let` bindings in WGSL.
+
+**Example: A Procedural Rainbow Shader**
+
+```python
+import math
+from Effy.types import Color
+from Effy.render.compiler import gpu_shader
+from Effy.render.renderer import create_renderer, RendererFlags, render_shader, render_present
+
+# 1. Define the AST Shader
+@gpu_shader
+def my_wobbly_shader(u: float, v: float) -> Color:
+    # This pure Python AST is transpiled directly to WGSL!
+    r = math.abs(math.sin(u * 10.0))
+    g = math.abs(math.cos(v * 10.0))
+    b = math.abs(math.sin((u + v) * 5.0))
+    return Color(r, g, b, 1.0)
+
+# 2. Bind and Render
+renderer_res = create_renderer(window, flags=RendererFlags.ACCELERATED).run()
+if renderer_res.is_ok():
+    renderer = renderer_res.unwrap()
+    
+    # Enqueue the transpiled shader to run on the GPU
+    renderer = render_shader(renderer, None, None, None, my_wobbly_shader)
+    
+    # Flush the pipeline and present to screen
+    render_present(renderer).run()
 ```
 
 ---

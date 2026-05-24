@@ -25,7 +25,7 @@ from Effy.render.commands import (
     DrawCircleCmd, FillCircleCmd, FillTriangleCmd,
     FillPolygonCmd, DrawCurveCmd,
     BlitCmd, BlitBlendedCmd, BlitScaledCmd, BlitBilinearCmd,
-    RenderFieldCmd, Field,
+    RenderFieldCmd, Field, RenderShaderCmd,
 )
 from Effy.render import rasterizer
 from Effy.render.texture import Texture
@@ -316,6 +316,24 @@ def render_field(ctx: RenderContext, rect: Rect | None, field: Field) -> RenderC
     return _append_command(ctx, cmd)
 
 
+@pure
+def render_shader(ctx: RenderContext, tex: Texture | None, src_rect: Rect | None, dst_rect: Rect | None, shader: Any) -> RenderContext:
+    """Enqueue a pure Python AST shader execution command.
+
+    Args:
+        ctx: The active RenderContext.
+        tex: The input Texture to sample from, or None if procedural.
+        src_rect: The source rectangle of the texture.
+        dst_rect: The screen destination rectangle.
+        shader: The GPUProgram containing the transpiled AST shader.
+
+    Returns:
+        A new RenderContext with RenderShaderCmd appended.
+    """
+    cmd = RenderShaderCmd(shader=shader, src_buffer=tex.buffer if tex else None, dst_rect=dst_rect)
+    return _append_command(ctx, cmd)
+
+
 def render_present(ctx: RenderContext) -> Effect[RenderContext]:
     """Flush the command queue, rasterize all commands, and present to the window.
 
@@ -335,11 +353,14 @@ def render_present(ctx: RenderContext) -> Effect[RenderContext]:
         handle = get_window_handle(ctx.window_id)
 
         success = False
+        data = None
+
         if adapter and handle and (ctx.flags & RendererFlags.ACCELERATED):
-            if hasattr(adapter, "present_accelerated"):
-                res = adapter.present_accelerated(handle, ctx._commands, ctx.width, ctx.height)
-                if isinstance(res, Ok):
-                    success = True
+            from Effy.render.gpu_driver import resolve_accelerated_pass
+            res = resolve_accelerated_pass(ctx._commands, ctx.width, ctx.height)
+            if isinstance(res, Ok):
+                data = res.value
+                success = True
 
         if not success:
             from Effy._internal.pool import pixel_buffer_pool
@@ -355,11 +376,21 @@ def render_present(ctx: RenderContext) -> Effect[RenderContext]:
             )
             
             _resolve_commands(buffer, data, ctx._commands)
+        else:
+            buffer = PixelBuffer(
+                width=ctx.width,
+                height=ctx.height,
+                pitch=ctx.width,
+                _data_cache=[data],
+                _commands_list=[],
+                _is_transient=True
+            )
 
-            if adapter and handle:
-                adapter.flip_buffer(handle, buffer)
+        if adapter and handle:
+            adapter.flip_buffer(handle, buffer)
 
-            pixel_buffer_pool.put(ctx.width, ctx.height, data)
+        from Effy._internal.pool import pixel_buffer_pool
+        pixel_buffer_pool.put(ctx.width, ctx.height, data)
 
         return RenderContext(
             window_id=ctx.window_id,

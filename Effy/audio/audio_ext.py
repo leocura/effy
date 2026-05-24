@@ -252,6 +252,133 @@ def _decode_via_libmpg123(file_path: str) -> Result[AudioBuffer, EffyError]:
     except Exception as e:
         return Err(EffyError(code=-1, message=f"libmpg123 decode exception: {str(e)}"))
 
+def _decode_via_audiotoolbox(file_path: str) -> Result[AudioBuffer, EffyError]:
+    """Decode compressed audio file via macOS AudioToolbox."""
+    if sys.platform != "darwin":
+        return Err(EffyError(code=-1, message="AudioToolbox is macOS only"))
+
+    try:
+        core_foundation = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+        audio_toolbox = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox")
+
+        # CFString / CFURL setup
+        core_foundation.CFURLCreateFromFileSystemRepresentation.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_bool]
+        core_foundation.CFURLCreateFromFileSystemRepresentation.restype = ctypes.c_void_p
+        core_foundation.CFRelease.argtypes = [ctypes.c_void_p]
+        core_foundation.CFRelease.restype = None
+
+        path_bytes = file_path.encode('utf-8')
+        cf_url = core_foundation.CFURLCreateFromFileSystemRepresentation(None, path_bytes, len(path_bytes), False)
+        if not cf_url:
+            return Err(EffyError(code=-1, message="Failed to create CFURL for audio file"))
+
+        # ExtAudioFileOpenURL
+        ext_audio_file = ctypes.c_void_p()
+        audio_toolbox.ExtAudioFileOpenURL.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+        audio_toolbox.ExtAudioFileOpenURL.restype = ctypes.c_int32
+        
+        status = audio_toolbox.ExtAudioFileOpenURL(cf_url, ctypes.byref(ext_audio_file))
+        core_foundation.CFRelease(cf_url)
+        
+        if status != 0 or not ext_audio_file:
+            return Err(EffyError(code=-1, message=f"ExtAudioFileOpenURL failed with status {status}"))
+
+        # Get file's native format
+        class AudioStreamBasicDescription(ctypes.Structure):
+            _fields_ = [
+                ("mSampleRate", ctypes.c_double),
+                ("mFormatID", ctypes.c_uint32),
+                ("mFormatFlags", ctypes.c_uint32),
+                ("mBytesPerPacket", ctypes.c_uint32),
+                ("mFramesPerPacket", ctypes.c_uint32),
+                ("mBytesPerFrame", ctypes.c_uint32),
+                ("mChannelsPerFrame", ctypes.c_uint32),
+                ("mBitsPerChannel", ctypes.c_uint32),
+                ("mReserved", ctypes.c_uint32)
+            ]
+        
+        file_format = AudioStreamBasicDescription()
+        prop_size = ctypes.c_uint32(ctypes.sizeof(AudioStreamBasicDescription))
+        
+        audio_toolbox.ExtAudioFileGetProperty.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_void_p]
+        audio_toolbox.ExtAudioFileGetProperty.restype = ctypes.c_int32
+        
+        # kExtAudioFileProperty_FileDataFormat = 1717988724 ('ffmt')
+        status = audio_toolbox.ExtAudioFileGetProperty(ext_audio_file, 1717988724, ctypes.byref(prop_size), ctypes.byref(file_format))
+        if status != 0:
+            audio_toolbox.ExtAudioFileDispose(ext_audio_file)
+            return Err(EffyError(code=-1, message="Failed to get file data format"))
+
+        # Set client format to 16-bit signed integer PCM (interleaved)
+        client_format = AudioStreamBasicDescription()
+        client_format.mSampleRate = file_format.mSampleRate
+        client_format.mFormatID = 1819304813 # 'lpcm'
+        client_format.mFormatFlags = 12 | 0 # kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked
+        client_format.mFramesPerPacket = 1
+        client_format.mChannelsPerFrame = file_format.mChannelsPerFrame
+        client_format.mBitsPerChannel = 16
+        client_format.mBytesPerPacket = client_format.mChannelsPerFrame * 2
+        client_format.mBytesPerFrame = client_format.mChannelsPerFrame * 2
+        
+        audio_toolbox.ExtAudioFileSetProperty.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+        audio_toolbox.ExtAudioFileSetProperty.restype = ctypes.c_int32
+        
+        # kExtAudioFileProperty_ClientDataFormat = 1667657076 ('cfmt')
+        status = audio_toolbox.ExtAudioFileSetProperty(ext_audio_file, 1667657076, ctypes.sizeof(client_format), ctypes.byref(client_format))
+        if status != 0:
+            audio_toolbox.ExtAudioFileDispose(ext_audio_file)
+            return Err(EffyError(code=-1, message="Failed to set client data format"))
+
+        class MacAudioBuffer(ctypes.Structure):
+            _fields_ = [
+                ("mNumberChannels", ctypes.c_uint32),
+                ("mDataByteSize", ctypes.c_uint32),
+                ("mData", ctypes.c_void_p)
+            ]
+
+        class MacAudioBufferList(ctypes.Structure):
+            _fields_ = [
+                ("mNumberBuffers", ctypes.c_uint32),
+                ("mBuffers", MacAudioBuffer * 1)
+            ]
+
+        pcm_data = array.array("h")
+        frames_to_read = 32768
+        bytes_per_frame = client_format.mBytesPerFrame
+        chunk_buf = (ctypes.c_char * (frames_to_read * bytes_per_frame))()
+        
+        buf_list = MacAudioBufferList()
+        buf_list.mNumberBuffers = 1
+        buf_list.mBuffers[0].mNumberChannels = client_format.mChannelsPerFrame
+        buf_list.mBuffers[0].mDataByteSize = frames_to_read * bytes_per_frame
+        buf_list.mBuffers[0].mData = ctypes.cast(chunk_buf, ctypes.c_void_p)
+
+        audio_toolbox.ExtAudioFileRead.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(MacAudioBufferList)]
+        audio_toolbox.ExtAudioFileRead.restype = ctypes.c_int32
+        
+        audio_toolbox.ExtAudioFileDispose.argtypes = [ctypes.c_void_p]
+        audio_toolbox.ExtAudioFileDispose.restype = ctypes.c_int32
+
+        frames_read = ctypes.c_uint32(frames_to_read)
+        
+        while True:
+            frames_read.value = frames_to_read
+            status = audio_toolbox.ExtAudioFileRead(ext_audio_file, ctypes.byref(frames_read), ctypes.byref(buf_list))
+            if status != 0 or frames_read.value == 0:
+                break
+                
+            num_shorts = (frames_read.value * bytes_per_frame) // 2
+            shorts_array = (ctypes.c_short * num_shorts).from_buffer(chunk_buf)
+            pcm_data.fromlist(list(shorts_array))
+
+        audio_toolbox.ExtAudioFileDispose(ext_audio_file)
+
+        spec = AudioSpec(freq=int(client_format.mSampleRate), format=AudioFormat.S16, channels=client_format.mChannelsPerFrame, samples=len(pcm_data) // client_format.mChannelsPerFrame)
+        return Ok(AudioBuffer(spec=spec, _data_array=pcm_data, _is_transient=False))
+        
+    except Exception as e:
+        return Err(EffyError(code=-1, message=f"AudioToolbox decode exception: {str(e)}"))
+
 def load_compressed_audio(file_path: str) -> Effect[Result[AudioBuffer, EffyError]]:
     """Entry point resolving to a lazy Effect wrapping loaded compressed audio data (MP3/Vorbis).
 
@@ -264,6 +391,8 @@ def load_compressed_audio(file_path: str) -> Effect[Result[AudioBuffer, EffyErro
     def _run() -> Result[AudioBuffer, EffyError]:
         if sys.platform == "win32":
             return _decode_via_media_foundation(file_path)
+        elif sys.platform == "darwin":
+            return _decode_via_audiotoolbox(file_path)
         else:
             return _decode_via_libmpg123(file_path)
 

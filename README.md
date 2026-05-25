@@ -1,8 +1,5 @@
 # Effy
 
-[![CI](https://github.com/leocura/effy/actions/workflows/ci.yml/badge.svg)](https://github.com/leocura/effy/actions/workflows/ci.yml)
-[![Release](https://github.com/leocura/effy/actions/workflows/release.yml/badge.svg)](https://github.com/leocura/effy/actions/workflows/release.yml)
-
 A pure-Python 2D graphics, audio, and windowing library inspired by SDL2. 
 
 Effy is built with minimal external dependencies. It talks directly to your operating system's windowing subsystem via standard library `ctypes`.
